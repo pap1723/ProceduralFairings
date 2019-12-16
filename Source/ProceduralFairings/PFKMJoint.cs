@@ -395,7 +395,7 @@ namespace Keramzit
             LineRenderer lineRenderer = gameObjectLine.AddComponent<LineRenderer>();
 
             lineRenderer.useWorldSpace = true;
-            lineRenderer.material = new Material (Shader.Find ("Particles/Additive"));
+            lineRenderer.material = new Material (Shader.Find ("Legacy Shaders/Particles/Additive"));
             lineRenderer.startColor = color;
             lineRenderer.endColor = color;
             lineRenderer.startWidth = wd;

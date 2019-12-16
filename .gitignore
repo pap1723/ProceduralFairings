@@ -17,7 +17,7 @@ Source/Builds/*
 *.sublime-workspace
 *.sublime-project
 *.user
-Source/.vs
+.vs/
 Source/bin
 Source/obj
 *.zip
