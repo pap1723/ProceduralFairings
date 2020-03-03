@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Keramzit
@@ -32,26 +33,11 @@ namespace Keramzit
         }
     }
 
-    class Tuple<T1, T2>
-    {
-        internal T1 Item1 { get; set; }
-        internal T2 Item2 { get; set; }
-
-        public Tuple (T1 item1, T2 item2)
-        {
-            this.Item1 = item1;
-            this.Item2 = item2;
-        }
-    }
-
     public static class PFUtils
     {
         public const string PAWName = "ProceduralFairings";
         public const string PAWGroup = "ProceduralFairings";
-        public static bool canCheckTech ()
-        {
-            return HighLogic.LoadedSceneIsEditor && (ResearchAndDevelopment.Instance != null || (HighLogic.CurrentGame.Mode != Game.Modes.CAREER && HighLogic.CurrentGame.Mode != Game.Modes.SCIENCE_SANDBOX));
-        }
+        public static bool canCheckTech () => HighLogic.LoadedSceneIsEditor && (ResearchAndDevelopment.Instance != null || (HighLogic.CurrentGame.Mode != Game.Modes.CAREER && HighLogic.CurrentGame.Mode != Game.Modes.SCIENCE_SANDBOX));
 
         public static bool haveTech (string name)
         {
@@ -183,74 +169,34 @@ namespace Keramzit
             }
         }
 
-        public static string formatMass (float mass)
-        {
-            if (mass < 0.01f)
-            {
-                return (mass * 1e3f).ToString ("n3") + "kg";
-            }
-
-            return mass.ToString("n3") + "t";
-        }
-
-        public static string formatCost (float cost)
-        {
-            return cost.ToString ("n0");
-        }
+        public static string formatMass(float mass) => (mass < 0.01) ? $"{mass * 1e3:N3}kg" : "{mass:N3}t";
+        public static string formatCost(float cost) => $"{cost:N0}";
 
         public static void enableRenderer (Transform t, bool e)
         {
-            if (!t)
-            {
-                return;
-            }
-
-            var r = t.GetComponent<Renderer>();
-
-            if (r)
-            {
+            if (t is Transform && t.GetComponent<Renderer>() is Renderer r)
                 r.enabled = e;
-            }
         }
 
-        public static void hideDragStuff (Part part)
-        {
-            enableRenderer (part.FindModelTransform ("dragOnly"), false);
-        }
+        public static void hideDragStuff(Part part) => enableRenderer(part.FindModelTransform("dragOnly"), false);
 
         public static bool FARinstalled, FARchecked;
 
-        public static bool isFarInstalled ()
+        public static bool isFarInstalled()
         {
             if (!FARchecked)
             {
-                var asmlist = AssemblyLoader.loadedAssemblies;
-
-                if (asmlist != null)
-                {
-                    for (int i = 0; i < asmlist.Count; i++)
-                    {
-                        if (asmlist [i].name == "FerramAerospaceResearch")
-                        {
-                            FARinstalled = true;
-
-                            break;
-                        }
-                    }
-                }
-
+                FARinstalled = AssemblyLoader.loadedAssemblies.Any(a => a.assembly.GetName().Name == "FerramAerospaceResearch");
                 FARchecked = true;
             }
-
             return FARinstalled;
         }
 
         public static void updateDragCube (Part part, float areaScale)
         {
-            if (isFarInstalled ())
+            if (isFarInstalled())
             {
                 Debug.Log ("[PF]: Calling FAR to update voxels...");
-
                 part.SendMessage ("GeometryPartModuleRebuildMeshData");
             }
 
@@ -270,9 +216,10 @@ namespace Keramzit
                 dragCube.Area [i] *= areaScale;
             }
 
-            part.DragCubes.ClearCubes ();
-            part.DragCubes.Cubes.Add (dragCube);
-            part.DragCubes.ResetCubeWeights ();
+            part.DragCubes.ClearCubes();
+            part.DragCubes.Cubes.Add(dragCube);
+            part.DragCubes.ResetCubeWeights();
+            part.DragCubes.ForceUpdate(true, true, false);
         }
 
         public static IEnumerator<YieldInstruction> updateDragCubeCoroutine (Part part, float areaScale)
@@ -312,18 +259,6 @@ namespace Keramzit
             }
 
             PFUtils.updateDragCube (part, areaScale);
-        }
-
-        public static void refreshPartWindow ()
-        {
-            var objs = UnityEngine.Object.FindObjectsOfType<UIPartActionWindow>();
-
-            for (int i = 0; i < objs.Length; i++)
-            {
-                var w = objs [i];
-
-                w.displayDirty = true;
-            }
         }
 
         public static Part partFromHit (this RaycastHit hit)
@@ -390,7 +325,6 @@ namespace Keramzit
     }
 
     [KSPAddon (KSPAddon.Startup.EditorAny, false)]
-
     public class EditorScreenMessager : MonoBehaviour
     {
         static float osdMessageTime;

@@ -39,11 +39,7 @@ namespace Keramzit
         protected float oldRadius = -1000;
         protected bool justLoaded;
 
-        public override string GetInfo ()
-        {
-            return "Max. Nodes: " + maxNumber;
-        }
-
+        public override string GetInfo() => $"Max Nodes: {maxNumber}";
 
         public virtual void FixedUpdate ()
         {
@@ -128,10 +124,10 @@ namespace Keramzit
                 return;
             }
 
-            ((UI_FloatEdit) Fields["radius"].uiControlEditor).incrementLarge = radiusStepLarge;
-            ((UI_FloatEdit) Fields["radius"].uiControlEditor).incrementSmall = radiusStepSmall;
+            (Fields[nameof(radius)].uiControlEditor as UI_FloatEdit).incrementLarge = radiusStepLarge;
+            (Fields[nameof(radius)].uiControlEditor as UI_FloatEdit).incrementSmall = radiusStepSmall;
 
-            Fields["radius"].guiActiveEditor = shouldResizeNodes;
+            Fields[nameof(radius)].guiActiveEditor = shouldResizeNodes;
 
             //  Hide the interstage toggle button if there are no interstage nodes.
 
@@ -181,15 +177,8 @@ namespace Keramzit
             updateNodePositions ();
         }
 
-        string nodeName (int i)
-        {
-            return string.Format ("{0}{1:d2}", nodePrefix, i);
-        }
-
-        AttachNode findNode (int i)
-        {
-            return part.FindAttachNode (nodeName (i));
-        }
+        string nodeName(int i) => $"{nodePrefix}{i:d2}";
+        AttachNode findNode(int i) => part.FindAttachNode(nodeName (i));
 
         bool checkNodeAttachments()
         {

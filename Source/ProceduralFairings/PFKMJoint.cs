@@ -37,16 +37,11 @@ namespace Keramzit
             {
                 AttachNode attachNode1 = base.part.FindAttachNode ("bottom");
 
-                AttachNode [] attachNodeArray = base.part.FindAttachNodes ("interstage");
-                AttachNode [] attachNodeArray1 = base.part.FindAttachNodes ("top");
+                AttachNode[] attachNodeArray = base.part.FindAttachNodes("interstage");
+                AttachNode[] attachNodeArray1 = base.part.FindAttachNodes("top");
 
-                string [] _vessel = { "[PF]: Adding Joints to Vessel: ", vessel.vesselName, " (Launch ID: ", base.part.launchID.ToString(), ") (GUID: ", base.vessel.id.ToString(), ")" };
-
-                Debug.Log (string.Concat (_vessel));
-
-                _vessel = new [] { "[PF]: For PF Part: ", base.part.name, " (", base.part.craftID.ToString (), ")" };
-
-                Debug.Log (string.Concat (_vessel));
+                Debug.Log($"[PF]: Adding Joints to Vessel: {vessel.vesselName}, (Launch ID: {base.part.launchID}) (GUID: {base.vessel.id})");
+                Debug.Log($"[PF]: For PF Part: {base.part.name} ({base.part.craftID})");
 
                 Part part = null;
 
@@ -57,13 +52,10 @@ namespace Keramzit
                     bottomNodePart = part;
 
                     addStrut (part, base.part, Vector3.zero);
-
-                    _vessel = new [] { "[PF]: Bottom Part: ", part.name, " (", part.craftID.ToString (), ")" };
-
-                    Debug.Log (string.Concat (_vessel));
+                    Debug.Log($"[PF]: Bottom Part: {part.name} ({part.craftID})");
                 }
 
-                Debug.Log ("[PF]: Top Parts:");
+                Debug.Log("[PF]: Top Parts:");
 
                 if (attachNodeArray1 != null)
                 {
@@ -81,10 +73,7 @@ namespace Keramzit
                             addStrut (attachNode.attachedPart, base.part, Vector3.zero);
 
                             nodeParts.Add (attachNode.attachedPart);
-
-                            _vessel = new [] { "[PF]:", attachNode.attachedPart.name, " (", attachNode.attachedPart.craftID.ToString (), ")" };
-
-                            Debug.Log (string.Concat (_vessel));
+                            Debug.Log($"[PF]: {attachNode.attachedPart.name} ({attachNode.attachedPart.craftID})");
                         }
                     }
                 }
@@ -105,10 +94,7 @@ namespace Keramzit
                             addStrut (attachNode.attachedPart, base.part, Vector3.zero);
 
                             nodeParts.Add (attachNode.attachedPart);
-
-                            _vessel = new [] { "[PF]:", attachNode.attachedPart.name, " (", attachNode.attachedPart.craftID.ToString (), ")" };
-
-                            Debug.Log (string.Concat (_vessel));
+                            Debug.Log($"[PF]: {attachNode.attachedPart.name} ({attachNode.attachedPart.craftID})");
                         }
                     }
                 }
@@ -227,51 +213,11 @@ namespace Keramzit
                 {
                     for (j = 0; j < (int)components.Length; j++)
                     {
-                        ConfigurableJoint configurableJoint = components [j];
-
-                        _name = new string [18];
-
-                        _name[0] = "[PF]: <ConfigurableJoint>, ";
-                        _name[1] = activeVessel [i].name;
-                        _name[2] = ", ";
-                        _name[3] = (configurableJoint.connectedBody == null ? "<none>" : configurableJoint.connectedBody.name);
-                        _name[4] = ", ";
-                        _breakForce = configurableJoint.breakForce;
-                        _name[5] = _breakForce.ToString ();
-                        _name[6] = ", ";
-                        _breakForce = configurableJoint.breakTorque;
-                        _name[7] = _breakForce.ToString ();
-                        _name[8] = ", ";
-                        _anchor = configurableJoint.anchor;
-                        _name[9] = _anchor.ToString ();
-                        _name[10] = ", ";
-                        _anchor = configurableJoint.connectedAnchor;
-                        _name[11] = _anchor.ToString ();
-                        _name[12] = ", ";
-
-                        string [] strArrays = _name;
-
-                        if (configurableJoint.connectedBody == null)
-                        {
-                            str1 = "--";
-                        }
-                        else
-                        {
-                            _anchor = activeVessel [i].transform.position - configurableJoint.connectedBody.position;
-
-                            str1 = _anchor.ToString ();
-                        }
-
-                        strArrays [13] = str1;
-
-                        _name [14] = ", ";
-                        _breakForce = configurableJoint.linearLimitSpring.damper;
-                        _name [15] = _breakForce.ToString ("F2");
-                        _name [16] = ", ";
-                        _breakForce = configurableJoint.linearLimitSpring.spring;
-                        _name [17] = _breakForce.ToString ("F2");
-
-                        Debug.Log (string.Concat (_name));
+                        ConfigurableJoint cj = components [j];
+                        string s = $"[PF]: <ConfigurableJoint>, {activeVessel[i].name}, {(cj.connectedBody == null ? "<none>" : cj.connectedBody.name)}";
+                        string pos = (cj.connectedBody == null) ? "--" : $"{activeVessel[i].transform.position - cj.connectedBody.position}";
+                        s += $", {cj.breakForce}, {cj.breakTorque}, {cj.anchor}, {cj.connectedAnchor}, {pos}, {cj.linearLimitSpring.damper:F2}, {cj.linearLimitSpring.spring:F2}";
+                        Debug.Log(s);
                     }
                 }
 
@@ -283,44 +229,11 @@ namespace Keramzit
                     {
                         PartJoint partJoint = partJointArray [j];
 
-                        if ((partJoint.Host != null ? true : !(partJoint.Target == null)))
+                        if (partJoint.Host || partJoint.Target)
                         {
-                            _name = new string [] { "[PF]: <PartJoint>, ", partJoint.Host.name, ", ", null, null, null, null, null, null, null, null };
-
-                            _name[3] = (partJoint.Target == null ? "<none>" : partJoint.Target.name);
-
-                            string [] strArrays1 = _name;
-
-                            if (partJoint.Joint == null)
-                            {
-                                int count = partJoint.joints.Count;
-
-                                str = string.Concat ("<no single joint> (", count.ToString (), ")");
-                            }
-                            else
-                            {
-                                _breakForce = partJoint.Joint.breakForce;
-
-                                string str2 = _breakForce.ToString ();
-
-                                _breakForce = partJoint.Joint.breakTorque;
-
-                                str = string.Concat (", ", str2, ", ", _breakForce.ToString ());
-                            }
-
-                            strArrays1 [4] = str;
-
-                            _name [5] = ", ";
-                            _breakForce = partJoint.stiffness;
-                            _name [6] = _breakForce.ToString ("F2");
-                            _name [7] = ", ";
-                            _anchor = partJoint.HostAnchor;
-                            _name [8] = _anchor.ToString ();
-                            _name [9] = ", ";
-                            _anchor = partJoint.TgtAnchor;
-                            _name [10] = _anchor.ToString ();
-
-                            Debug.Log (string.Concat (_name));
+                            string target = partJoint.Target == null ? "<none>" : partJoint.Target.name;
+                            string forces = partJoint.Joint ? $"{partJoint.Joint.breakForce}, {partJoint.Joint.breakTorque}" : $"<no single joint> ({partJoint.joints.Count})";
+                            Debug.Log($"[PF]: <PartJoint>, {partJoint.Host.name}, {target}, {forces}, {partJoint.stiffness:F2}, {partJoint.HostAnchor}, {partJoint.TgtAnchor}");
                         }
                         else
                         {
@@ -333,17 +246,13 @@ namespace Keramzit
 
                             if (attachNode != null)
                             {
-                                object [] objArray = { "[PF]: <AttachNode>, ", partJoint.Host.name, ", ", partJoint.Target.name, ", ", attachNode.breakingForce.ToString(), ", ", attachNode.breakingTorque.ToString(), ", ", attachNode.contactArea.ToString("F2"), ", ", attachNode.attachMethod, ", ", attachNode.rigid.ToString (), ", ", attachNode.radius.ToString ("F2") };
-
-                                Debug.Log (string.Concat (objArray));
+                                Debug.Log($"[PF]: <AttachNode>, {partJoint.Host.name}, {partJoint.Target.name}, {attachNode.breakingForce}, {attachNode.breakingTorque}, {attachNode.contactArea:F2}, {attachNode.attachMethod}, {attachNode.rigid}, {attachNode.radius:F2}");
 
                                 AttachNode attachNode1 = attachNode.FindOpposingNode ();
 
-                                if ((attachNode1 == null ? false : attachNode1.owner != null))
+                                if (attachNode1 != null && attachNode1.owner)
                                 {
-                                    objArray = new object [] { "[PF]: <Opposing AttachNode>, ", attachNode1.owner.name, ", ", (attachNode1.attachedPart != null ? attachNode1.attachedPart.name : "<none>"), ", ", attachNode1.breakingForce.ToString(), ", ", attachNode1.breakingTorque.ToString(), ", ", attachNode1.contactArea.ToString("F2"), ", ", attachNode1.attachMethod, ", ", attachNode1.rigid.ToString (), ", ", attachNode1.radius.ToString ("F2") };
-
-                                    Debug.Log (string.Concat (objArray));
+                                    Debug.Log($"[PF]: <Opposing AttachNode>, {attachNode1.owner.name}, {(attachNode1.attachedPart != null ? attachNode1.attachedPart.name : "<none>")}, {attachNode1.breakingForce}, {attachNode1.breakingTorque}, {attachNode1.contactArea:F2}, {attachNode1.attachMethod}, {attachNode1.rigid}, {attachNode1.radius:F2}");
                                 }
                             }
                         }
@@ -356,25 +265,8 @@ namespace Keramzit
                 {
                     for (j = 0; j < (int)fixedJointArray.Length; j++)
                     {
-                        FixedJoint fixedJoint = fixedJointArray [j];
-
-                        _name = new string [] { "[PF]: <FixedJoint>, ", fixedJoint.name, ", ", null, null, null, null, null, null, null, null, null };
-
-                        _name [3] = (fixedJoint.connectedBody == null ? "<none>" : fixedJoint.connectedBody.name);
-                        _name [4] = ", ";
-                        _breakForce = fixedJoint.breakForce;
-                        _name [5] = _breakForce.ToString ();
-                        _name [6] = ", ";
-                        _breakForce = fixedJoint.breakTorque;
-                        _name [7] = _breakForce.ToString ();
-                        _name [8] = ", ";
-                        _anchor = fixedJoint.anchor;
-                        _name [9] = _anchor.ToString ();
-                        _name [10] = ", ";
-                        _anchor = fixedJoint.connectedAnchor;
-                        _name [11] = _anchor.ToString ();
-
-                        Debug.Log (string.Concat (_name));
+                        FixedJoint fj = fixedJointArray [j];
+                        Debug.Log($"[PF]: <FixedJoint>, {fj.name}, {(fj.connectedBody == null ? "<none>" : fj.connectedBody.name)}, {fj.breakForce}, {fj.breakTorque}, {fj.anchor}, {fj.connectedAnchor}");
                     }
                 }
             }
@@ -411,7 +303,6 @@ namespace Keramzit
             GameEvents.onGameSceneLoadRequested.Remove (new EventData<GameScenes>.OnEvent (OnGameSceneLoadRequested));
             GameEvents.onVesselWasModified.Remove (new EventData<Vessel>.OnEvent (OnVesselModified));
             GameEvents.onPartJointBreak.Remove (new EventData<PartJoint, float>.OnEvent (OnPartJointBreak));
-            GameEvents.onVesselGoOffRails.Remove (new EventData<Vessel>.OnEvent (OnVesselGoOffRails));
         }
 
         void OnGameSceneLoadRequested (GameScenes scene)
@@ -498,24 +389,13 @@ namespace Keramzit
             GameEvents.onGameSceneLoadRequested.Add (new EventData<GameScenes>.OnEvent (OnGameSceneLoadRequested));
             GameEvents.onVesselWasModified.Add (new EventData<Vessel>.OnEvent (OnVesselModified));
             GameEvents.onPartJointBreak.Add (new EventData<PartJoint, float>.OnEvent (OnPartJointBreak));
-            GameEvents.onVesselGoOffRails.Add (new EventData<Vessel>.OnEvent (OnVesselGoOffRails));
-        }
-
-        void OnVesselGoOffRails (Vessel v)
-        {
-            if ((v == null ? true : this == null))
-            {
-            }
         }
 
         void OnVesselModified (Vessel v)
         {
-            if (v == vessel)
+            if (v == vessel && viewJoints)
             {
-                if (viewJoints)
-                {
-                    ViewJoints ();
-                }
+                ViewJoints();
             }
         }
 

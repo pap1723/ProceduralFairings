@@ -228,57 +228,28 @@ namespace Keramzit
         public void UIToggleTopNodeDecouple ()
         {
             topNodeDecouplesWhenFairingsGone = !topNodeDecouplesWhenFairingsGone;
-
             UpdateUIdecNoFairingsText (topNodeDecouplesWhenFairingsGone);
         }
 
         void UpdateUIdecNoFairingsText (bool flag)
         {
-            if (flag)
-            {
-                Events["UIToggleTopNodeDecouple"].guiName = "Decouple when Fairing gone: Yes";
-            }
-            else
-            {
-                Events["UIToggleTopNodeDecouple"].guiName = "Decouple when Fairing gone: No";
-            }
+            Events[nameof(UIToggleTopNodeDecouple)].guiName = $"Decouple when Fairing gone: {(flag ? "Yes" : "No")}";
         }
 
-        public override float minHeight
-        {
-            get
-            {
-                return baseSize * 0.2f;
-            }
-        }
-
-        public ModifierChangeWhen GetModuleCostChangeWhen() { return ModifierChangeWhen.FIXED; }
-        public ModifierChangeWhen GetModuleMassChangeWhen() { return ModifierChangeWhen.FIXED; }
-
-        public float GetModuleCost (float defcost, ModifierStagingSituation sit)
-        {
-            return totalMass * costPerTonne - defcost;
-        }
-
-        public float GetModuleMass (float defmass, ModifierStagingSituation sit)
-        {
-            return totalMass - defmass;
-        }
-
-        public float calcSideThickness ()
-        {
-            return Mathf.Min (sideThickness * Mathf.Max (baseSize, topSize), Mathf.Min (baseSize, topSize) * 0.25f);
-        }
+        public ModifierChangeWhen GetModuleCostChangeWhen() => ModifierChangeWhen.FIXED;
+        public ModifierChangeWhen GetModuleMassChangeWhen() => ModifierChangeWhen.FIXED;
+        public float GetModuleCost(float defcost, ModifierStagingSituation sit) => (totalMass * costPerTonne) - defcost;
+        public float GetModuleMass (float defmass, ModifierStagingSituation sit) => totalMass - defmass;
+        public float CalcSideThickness() => Mathf.Min(sideThickness * Mathf.Max(baseSize, topSize), Mathf.Min(baseSize, topSize) * 0.25f);
 
         public float topRadius
         {
-            get
-            {
-                return topSize * 0.5f - calcSideThickness ();
-            }
+            get => (topSize / 2) - CalcSideThickness();
         }
-
-
+        public override float minHeight
+        {
+            get => baseSize * 0.2f;
+        }
 
         public override void checkTweakables ()
         {
@@ -396,7 +367,7 @@ namespace Keramzit
         {
             base.updateShape ();
 
-            float sth = calcSideThickness ();
+            float sth = CalcSideThickness();
 
             float br = baseSize * 0.5f - sth;
             float scale = br * 2;
@@ -529,18 +500,18 @@ namespace Keramzit
                 float minSize = PFUtils.getTechMinValue ("PROCFAIRINGS_MINDIAMETER", 0.25f);
                 float maxSize = PFUtils.getTechMaxValue ("PROCFAIRINGS_MAXDIAMETER", 30);
 
-                PFUtils.setFieldRange (Fields["baseSize"], minSize, maxSize);
-                PFUtils.setFieldRange (Fields["topSize"], minSize, maxSize);
+                PFUtils.setFieldRange(Fields[nameof(baseSize)], minSize, maxSize);
+                PFUtils.setFieldRange(Fields[nameof(topSize)], minSize, maxSize);
 
-                ((UI_FloatEdit) Fields["baseSize"].uiControlEditor).incrementLarge = diameterStepLarge;
-                ((UI_FloatEdit) Fields["baseSize"].uiControlEditor).incrementSmall = diameterStepSmall;
-                ((UI_FloatEdit) Fields["topSize"].uiControlEditor).incrementLarge = diameterStepLarge;
-                ((UI_FloatEdit) Fields["topSize"].uiControlEditor).incrementSmall = diameterStepSmall;
+                (Fields[nameof(baseSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
+                (Fields[nameof(baseSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
+                (Fields[nameof(topSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
+                (Fields[nameof(topSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
 
-                ((UI_FloatEdit) Fields["height"].uiControlEditor).incrementLarge = heightStepLarge;
-                ((UI_FloatEdit) Fields["height"].uiControlEditor).incrementSmall = heightStepSmall;
-                ((UI_FloatEdit) Fields["extraHeight"].uiControlEditor).incrementLarge = heightStepLarge;
-                ((UI_FloatEdit) Fields["extraHeight"].uiControlEditor).incrementSmall = heightStepSmall;
+                (Fields[nameof(height)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+                (Fields[nameof(height)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
+                (Fields[nameof(extraHeight)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+                (Fields[nameof(extraHeight)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
             }
 
             if (isShipModified)
@@ -560,7 +531,7 @@ namespace Keramzit
                         {
                             isTopNodePartPresent = false;
 
-                            Events["UIToggleTopNodeDecouple"].guiActive = false;
+                            Events[nameof(UIToggleTopNodeDecouple)].guiActive = false;
                         }
                         else
                         {
@@ -585,7 +556,7 @@ namespace Keramzit
                                     isFairingPresent = false;
                                     isTopNodePartPresent = false;
 
-                                    Events["UIToggleTopNodeDecouple"].guiActive = false;
+                                    Events[nameof(UIToggleTopNodeDecouple)].guiActive = false;
                                 }
                             }
                         }
@@ -603,7 +574,7 @@ namespace Keramzit
 
                                 StageManager.Instance.SortIcons (true);
 
-                                Events["UIToggleTopNodeDecouple"].guiActive = false;
+                                Events[nameof(UIToggleTopNodeDecouple)].guiActive = false;
                             }
                         }
                     }

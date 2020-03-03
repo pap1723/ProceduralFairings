@@ -12,7 +12,7 @@ namespace Keramzit
 {
     public class KzFairingBaseShielding : PartModule, IAirstreamShield
     {
-        readonly List<Part> shieldedParts = new List<Part>();;
+        readonly List<Part> shieldedParts = new List<Part>();
         ProceduralFairingSide sideFairing;
 
         float boundCylY0, boundCylY1, boundCylRad;
@@ -26,9 +26,9 @@ namespace Keramzit
 
         bool needReset;
 
-        public bool ClosedAndLocked () { return true; }
-        public Vessel GetVessel () { return vessel; }
-        public Part GetPart () { return part; }
+        public bool ClosedAndLocked() => true;
+        public Vessel GetVessel() => vessel;
+        public Part GetPart() => part;
 
         public override void OnStart (StartState state)
         {

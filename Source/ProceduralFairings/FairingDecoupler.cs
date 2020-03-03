@@ -42,10 +42,7 @@ namespace Keramzit
         public bool fairingStaged = true;
 
         [KSPAction("Jettison Fairing", actionGroup = KSPActionGroup.None)]
-        public void ActionJettison (KSPActionParam param)
-        {
-            OnJettisonFairing ();
-        }
+        public void ActionJettison (KSPActionParam param) => OnJettisonFairing ();
 
         public void FixedUpdate ()
         {
@@ -116,7 +113,7 @@ namespace Keramzit
                     }
                     else
                     {
-                        Debug.LogError ("[PF]: No '" + transformName + "' transform in part!", part);
+                        Debug.LogError($"[PF]: No '{transformName}' transform in part {part}!");
                     }
 
                     didForce = true;
@@ -125,21 +122,17 @@ namespace Keramzit
             }
         }
 
-        public override void OnActive ()
-        {
-            OnJettisonFairing ();
-        }
+        public override void OnActive() => OnJettisonFairing();
 
-        [KSPEvent (name = "Jettison", active = true, guiActive = true, guiActiveUnfocused = false, guiName = "Jettison Fairing")]
-        public void OnJettisonFairing ()
+        [KSPEvent(name = "Jettison", active = true, guiActive = true, guiName = "Jettison Fairing", groupName = PFUtils.PAWGroup)]
+        public void OnJettisonFairing()
         {
             decoupled |= fairingStaged;
         }
 
         public override void OnLoad (ConfigNode node)
         {
-            base.OnLoad (node);
-
+            base.OnLoad(node);
             didForce = decoupled;
         }
 
@@ -186,7 +179,7 @@ namespace Keramzit
             {
                 //  Set up the GUI editor update callback.
 
-                ((UI_Toggle) Fields["fairingStaged"].uiControlEditor).onFieldChanged += OnUpdateUI;
+                (Fields[nameof(fairingStaged)].uiControlEditor as UI_Toggle).onFieldChanged += OnUpdateUI;
             }
 
             ejectFx.audio = part.gameObject.AddComponent<AudioSource>();
@@ -210,18 +203,13 @@ namespace Keramzit
 
             //  Set the state of the "Jettison Fairing" PAW button.
 
-            Events["OnJettisonFairing"].guiActive = fairingStaged;
+            Events[nameof(OnJettisonFairing)].guiActive = fairingStaged;
 
             //  Update the staging icon sequence.
 
             OnSetStagingIcons ();
         }
 
-        void OnUpdateUI (BaseField bf, object obj)
-        {
-            //  Update the staging icon sequence.
-
-            OnSetStagingIcons ();
-        }
-   }
+        void OnUpdateUI(BaseField bf, object obj) => OnSetStagingIcons();
+    }
 }

@@ -36,19 +36,12 @@ namespace Keramzit
 
         protected float oldSize = -1000;
         protected bool justLoaded, limitsSet;
+        public float totalMass;
 
-        public ModifierChangeWhen GetModuleCostChangeWhen () { return ModifierChangeWhen.FIXED; }
-        public ModifierChangeWhen GetModuleMassChangeWhen () { return ModifierChangeWhen.FIXED; }
-
-        public float GetModuleCost (float defcost, ModifierStagingSituation sit)
-        {
-            return totalMass * costPerTonne - defcost;
-        }
-
-        public float GetModuleMass (float defmass, ModifierStagingSituation sit)
-        {
-            return totalMass - defmass;
-        }
+        public ModifierChangeWhen GetModuleCostChangeWhen() => ModifierChangeWhen.FIXED;
+        public ModifierChangeWhen GetModuleMassChangeWhen() => ModifierChangeWhen.FIXED;
+        public float GetModuleCost(float defcost, ModifierStagingSituation sit) => (totalMass * costPerTonne) - defcost;
+        public float GetModuleMass(float defmass, ModifierStagingSituation sit) => totalMass - defmass;
 
         public void Start ()
         {
@@ -87,10 +80,10 @@ namespace Keramzit
                 float minSize = PFUtils.getTechMinValue (minSizeName, 0.25f);
                 float maxSize = PFUtils.getTechMaxValue (maxSizeName, 30);
 
-                PFUtils.setFieldRange (Fields["size"], minSize, maxSize);
+                PFUtils.setFieldRange(Fields[nameof(size)], minSize, maxSize);
 
-                ((UI_FloatEdit) Fields["size"].uiControlEditor).incrementLarge = diameterStepLarge;
-                ((UI_FloatEdit) Fields["size"].uiControlEditor).incrementSmall = diameterStepSmall;
+                (Fields[nameof(size)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
+                (Fields[nameof(size)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
             }
 
             if (!size.Equals (oldSize))
@@ -161,8 +154,6 @@ namespace Keramzit
             }
         }
 
-        public float totalMass;
-
         public virtual void resizePart (float scale)
         {
             oldSize = size;
@@ -207,14 +198,11 @@ namespace Keramzit
     {
         [KSPField] public float sideThickness = 0.05f / 1.25f;
 
-        public float calcSideThickness ()
-        {
-            return Mathf.Min (sideThickness * size, size * 0.25f);
-        }
+        public float CalcSideThickness() => Mathf.Min(sideThickness * size, size * 0.25f);
 
         public override void updateNodeSize (float scale)
         {
-            float sth = calcSideThickness ();
+            float sth = CalcSideThickness();
 
             float br = size * 0.5f - sth;
             scale = br * 2;
@@ -240,7 +228,7 @@ namespace Keramzit
 
         public override void resizePart (float scale)
         {
-            float sth = calcSideThickness ();
+            float sth = CalcSideThickness();
 
             float br = size * 0.5f - sth;
             scale = br * 2;

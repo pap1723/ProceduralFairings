@@ -60,12 +60,7 @@ namespace Keramzit
         readonly List<LineRenderer> outline = new List<LineRenderer>();
         readonly List<ConfigurableJoint> joints = new List<ConfigurableJoint>();
 
-        public override string GetInfo ()
-        {
-            const string infoString = "Attach side fairings and they will be shaped for your attached payload.\n" + "Remember to enable the decoupler if you need one.";
-
-            return infoString;
-        }
+        public override string GetInfo() => "Attach side fairings and they will be shaped for your attached payload.\nRemember to enable the decoupler if you need one.";
 
         public override void OnStart (StartState state)
         {
@@ -136,11 +131,11 @@ namespace Keramzit
 
         void SetUIChangedCallBacks ()
         {
-            ((UI_Toggle) Fields["autoShape"].uiControlEditor).onFieldChanged += OnChangeAutoshapeUI;
+            (Fields[nameof(autoShape)].uiControlEditor as UI_Toggle).onFieldChanged += OnChangeAutoshapeUI;
 
-            ((UI_FloatEdit) Fields["manualMaxSize"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
-            ((UI_FloatEdit) Fields["manualCylStart"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
-            ((UI_FloatEdit) Fields["manualCylEnd"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(manualMaxSize)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
         }
 
         void OnChangeAutoshapeUI (BaseField bf, object obj)
@@ -152,11 +147,10 @@ namespace Keramzit
 
         void OnToggleAutoshapeUI ()
         {
-            Fields["manualMaxSize"].guiActiveEditor  = !autoShape;
-            Fields["manualCylStart"].guiActiveEditor = !autoShape;
-            Fields["manualCylEnd"].guiActiveEditor   = !autoShape;
-
-            PFUtils.refreshPartWindow ();
+            Fields[nameof(manualMaxSize)].guiActiveEditor  = !autoShape;
+            Fields[nameof(manualCylStart)].guiActiveEditor = !autoShape;
+            Fields[nameof(manualCylEnd)].guiActiveEditor   = !autoShape;
+            MonoUtilities.RefreshPartContextWindow(part);
         }
 
         void OnChangeShapeUI (BaseField bf, object obj)
@@ -223,10 +217,7 @@ namespace Keramzit
             }
         }
 
-        public void OnPartPack ()
-        {
-            removeJoints ();
-        }
+        public void OnPartPack () => removeJoints ();
 
         ConfigurableJoint addStrut (Part p, Part pp)
         {
@@ -297,10 +288,7 @@ namespace Keramzit
             }
         }
 
-        public void onShieldingDisabled (List<Part> shieldedParts)
-        {
-            removeJoints ();
-        }
+        public void onShieldingDisabled (List<Part> shieldedParts) => removeJoints ();
 
         public void onShieldingEnabled (List<Part> shieldedParts)
         {
@@ -324,15 +312,15 @@ namespace Keramzit
                 float minSize = PFUtils.getTechMinValue ("PROCFAIRINGS_MINDIAMETER", 0.25f);
                 float maxSize = PFUtils.getTechMaxValue ("PROCFAIRINGS_MAXDIAMETER", 30);
 
-                PFUtils.setFieldRange (Fields["manualMaxSize"], minSize, maxSize * 2);
+                PFUtils.setFieldRange(Fields[nameof(manualMaxSize)], minSize, maxSize * 2);
 
-                ((UI_FloatEdit) Fields["manualMaxSize"].uiControlEditor).incrementLarge = diameterStepLarge;
-                ((UI_FloatEdit) Fields["manualMaxSize"].uiControlEditor).incrementSmall = diameterStepSmall;
+                (Fields[nameof(manualMaxSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
+                (Fields[nameof(manualMaxSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
 
-                ((UI_FloatEdit) Fields["manualCylStart"].uiControlEditor).incrementLarge = heightStepLarge;
-                ((UI_FloatEdit) Fields["manualCylStart"].uiControlEditor).incrementSmall = heightStepSmall;
-                ((UI_FloatEdit) Fields["manualCylEnd"].uiControlEditor).incrementLarge = heightStepLarge;
-                ((UI_FloatEdit) Fields["manualCylEnd"].uiControlEditor).incrementSmall = heightStepSmall;
+                (Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+                (Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
+                (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+                (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
             }
 
             if (!part.packed && topBasePart != null)

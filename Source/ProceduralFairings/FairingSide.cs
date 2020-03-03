@@ -118,25 +118,11 @@ namespace Keramzit
         [KSPField(guiActiveEditor = true, guiName = "Cost", groupName = PFUtils.PAWGroup)]
         public string costDisplay;
 
-        public ModifierChangeWhen GetModuleCostChangeWhen () { return ModifierChangeWhen.FIXED; }
-        public ModifierChangeWhen GetModuleMassChangeWhen () { return ModifierChangeWhen.FIXED; }
-
-        public float GetModuleCost (float defcost, ModifierStagingSituation sit)
-        {
-            return totalMass * costPerTonne - defcost;
-        }
-
-        public float GetModuleMass (float defmass, ModifierStagingSituation sit)
-        {
-            return totalMass - defmass;
-        }
-
-        public override string GetInfo ()
-        {
-            const string infoString = "Attach to a procedural fairing base to reshape. Right-click it to set it's parameters.";
-
-            return infoString;
-        }
+        public ModifierChangeWhen GetModuleCostChangeWhen() => ModifierChangeWhen.FIXED;
+        public ModifierChangeWhen GetModuleMassChangeWhen() => ModifierChangeWhen.FIXED;
+        public float GetModuleCost(float defcost, ModifierStagingSituation sit) => (totalMass * costPerTonne) - defcost;
+        public float GetModuleMass(float defmass, ModifierStagingSituation sit) => totalMass - defmass;
+        public override string GetInfo() => "Attach to a procedural fairing base to reshape. Right-click it to set it's parameters.";
 
         public void Start ()
         {
@@ -205,23 +191,23 @@ namespace Keramzit
 
         void OnUpdateFairingSideUI ()
         {
-            ((UI_Toggle) Fields["baseAutoShape"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
-            ((UI_Toggle) Fields["noseAutoShape"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(baseAutoShape)].uiControlEditor as UI_Toggle).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(noseAutoShape)].uiControlEditor as UI_Toggle).onFieldChanged += OnChangeShapeUI;
 
-            ((UI_FloatEdit) Fields["baseCurveStartX"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
-            ((UI_FloatEdit) Fields["baseCurveStartY"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
-            ((UI_FloatEdit) Fields["baseCurveEndX"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
-            ((UI_FloatEdit) Fields["baseCurveEndY"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(baseCurveStartX)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(baseCurveStartY)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(baseCurveEndX)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(baseCurveEndY)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
 
-            ((UI_FloatEdit) Fields["noseCurveStartX"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
-            ((UI_FloatEdit) Fields["noseCurveStartY"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
-            ((UI_FloatEdit) Fields["noseCurveEndX"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
-            ((UI_FloatEdit) Fields["noseCurveEndY"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
-            ((UI_FloatEdit) Fields["noseHeightRatio"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(noseCurveStartX)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(noseCurveStartY)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(noseCurveEndX)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(noseCurveEndY)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(noseHeightRatio)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
 
-            ((UI_FloatRange) Fields["baseConeSegments"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
-            ((UI_FloatRange) Fields["noseConeSegments"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
-            ((UI_FloatRange) Fields["density"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(baseConeSegments)].uiControlEditor as UI_FloatRange).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(noseConeSegments)].uiControlEditor as UI_FloatRange).onFieldChanged += OnChangeShapeUI;
+            (Fields[nameof(density)].uiControlEditor as UI_FloatRange).onFieldChanged += OnChangeShapeUI;
         }
 
         void OnChangeShapeUI (BaseField bf, object obj)
@@ -267,18 +253,18 @@ namespace Keramzit
 
         void OnToggleFairingShapeUI ()
         {
-            Fields["baseCurveStartX"].guiActiveEditor  = !baseAutoShape;
-            Fields["baseCurveStartY"].guiActiveEditor  = !baseAutoShape;
-            Fields["baseCurveEndX"].guiActiveEditor    = !baseAutoShape;
-            Fields["baseCurveEndY"].guiActiveEditor    = !baseAutoShape;
-            Fields["baseConeSegments"].guiActiveEditor = !baseAutoShape;
+            Fields[nameof(baseCurveStartX)].guiActiveEditor  = !baseAutoShape;
+            Fields[nameof(baseCurveStartY)].guiActiveEditor  = !baseAutoShape;
+            Fields[nameof(baseCurveEndX)].guiActiveEditor    = !baseAutoShape;
+            Fields[nameof(baseCurveEndY)].guiActiveEditor    = !baseAutoShape;
+            Fields[nameof(baseConeSegments)].guiActiveEditor = !baseAutoShape;
 
-            Fields["noseCurveStartX"].guiActiveEditor  = !noseAutoShape;
-            Fields["noseCurveStartY"].guiActiveEditor  = !noseAutoShape;
-            Fields["noseCurveEndX"].guiActiveEditor    = !noseAutoShape;
-            Fields["noseCurveEndY"].guiActiveEditor    = !noseAutoShape;
-            Fields["noseHeightRatio"].guiActiveEditor  = !noseAutoShape;
-            Fields["noseConeSegments"].guiActiveEditor = !noseAutoShape;
+            Fields[nameof(noseCurveStartX)].guiActiveEditor  = !noseAutoShape;
+            Fields[nameof(noseCurveStartY)].guiActiveEditor  = !noseAutoShape;
+            Fields[nameof(noseCurveEndX)].guiActiveEditor    = !noseAutoShape;
+            Fields[nameof(noseCurveEndY)].guiActiveEditor    = !noseAutoShape;
+            Fields[nameof(noseHeightRatio)].guiActiveEditor  = !noseAutoShape;
+            Fields[nameof(noseConeSegments)].guiActiveEditor = !noseAutoShape;
         }
 
         public void updateNodeSize ()
