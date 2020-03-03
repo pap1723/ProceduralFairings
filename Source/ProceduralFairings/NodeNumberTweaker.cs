@@ -14,23 +14,27 @@ namespace Keramzit
         [KSPField] public string nodePrefix = "bottom";
         [KSPField] public int maxNumber;
 
-        [KSPField (guiActiveEditor = true, guiName = "Fairing Nodes")]
-        [UI_FloatRange (minValue = 1, maxValue = 8, stepIncrement = 1)]
+        [KSPField(guiActiveEditor = true, guiName = "Fairing Nodes", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [UI_FloatRange(minValue = 1, maxValue = 8, stepIncrement = 1)]
         public float uiNumNodes = 2;
 
-        [KSPField (isPersistant = true)]
+        [KSPField(isPersistant = true)]
         public int numNodes = 2;
 
         int numNodesBefore;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Node offset", guiFormat = "S4", guiUnits = "m")]
-        [UI_FloatEdit (sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 0.625f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Node offset", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 0.625f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
         public float radius = 1.25f;
 
         [KSPField] public float radiusStepLarge = 0.625f;
         [KSPField] public float radiusStepSmall = 0.125f;
 
         [KSPField] public bool shouldResizeNodes = true;
+
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Interstage Nodes", groupName = PFUtils.PAWGroup)]
+        [UI_Toggle(disabledText = "Off", enabledText = "On")]
+        public bool showInterstageNodes = true;
 
         protected float oldRadius = -1000;
         protected bool justLoaded;
@@ -40,9 +44,6 @@ namespace Keramzit
             return "Max. Nodes: " + maxNumber;
         }
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Interstage Nodes")]
-        [UI_Toggle (disabledText = "Off", enabledText = "On")]
-        public bool showInterstageNodes = true;
 
         public virtual void FixedUpdate ()
         {

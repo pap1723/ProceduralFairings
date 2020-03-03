@@ -12,17 +12,16 @@ namespace Keramzit
 {
     public class KzFairingBaseShielding : PartModule, IAirstreamShield
     {
-        List<Part> shieldedParts;
-
+        readonly List<Part> shieldedParts = new List<Part>();;
         ProceduralFairingSide sideFairing;
 
         float boundCylY0, boundCylY1, boundCylRad;
         float lookupRad;
 
         Vector3 lookupCenter;
-        Vector3 [] shape;
+        Vector3[] shape;
 
-        [KSPField (isPersistant = false, guiActive = true, guiActiveEditor = true, guiName = "Parts shielded")]
+        [KSPField(guiActive = true, guiActiveEditor = true, guiName = "Parts shielded", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
         public int numShieldedDisplay;
 
         bool needReset;
@@ -30,11 +29,6 @@ namespace Keramzit
         public bool ClosedAndLocked () { return true; }
         public Vessel GetVessel () { return vessel; }
         public Part GetPart () { return part; }
-
-        public override void OnAwake ()
-        {
-            shieldedParts = new List<Part>();
-        }
 
         public override void OnStart (StartState state)
         {

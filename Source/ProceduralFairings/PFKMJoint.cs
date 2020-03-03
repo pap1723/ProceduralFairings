@@ -15,20 +15,17 @@ namespace Keramzit
         [KSPField (isPersistant = true)]
         public float breakingForce = 500000f;
 
-        [KSPField (guiActive = true, guiName = "View Joints")]
-        [UI_Toggle (disabledText = "Off", enabledText = "On")]
+        [KSPField(guiActive = true, guiName = "View Joints", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [UI_Toggle(disabledText = "Off", enabledText = "On")]
         public bool viewJoints;
 
         const float w1 = 0.05f;
         const float w2 = 0.15f;
 
         readonly List<LineRenderer> jointLines = new List<LineRenderer>();
-
         bool morejointsadded;
-
         Part bottomNodePart;
-
-        List<Part> nodeParts = new List<Part>();
+        readonly List<Part> nodeParts = new List<Part>();
 
         void AddMoreJoints ()
         {

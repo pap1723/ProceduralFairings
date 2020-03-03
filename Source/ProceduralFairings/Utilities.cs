@@ -46,6 +46,8 @@ namespace Keramzit
 
     public static class PFUtils
     {
+        public const string PAWName = "ProceduralFairings";
+        public const string PAWGroup = "ProceduralFairings";
         public static bool canCheckTech ()
         {
             return HighLogic.LoadedSceneIsEditor && (ResearchAndDevelopment.Instance != null || (HighLogic.CurrentGame.Mode != Game.Modes.CAREER && HighLogic.CurrentGame.Mode != Game.Modes.SCIENCE_SANDBOX));

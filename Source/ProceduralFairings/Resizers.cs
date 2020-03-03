@@ -11,8 +11,8 @@ namespace Keramzit
 {
     public abstract class KzPartResizer : PartModule, IPartCostModifier, IPartMassModifier
     {
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Size", guiFormat = "S4", guiUnits = "m")]
-        [UI_FloatEdit (sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Size", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
         public float size = 1.25f;
 
         [KSPField] public float diameterStepLarge = 1.25f;
@@ -28,10 +28,10 @@ namespace Keramzit
 
         [KSPField] public float dragAreaScale = 1;
 
-        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Mass")]
+        [KSPField(guiActiveEditor = true, guiName = "Mass", groupName = PFUtils.PAWGroup)]
         public string massDisplay;
 
-        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Cost")]
+        [KSPField(guiActiveEditor = true, guiName = "Cost", groupName = PFUtils.PAWGroup)]
         public string costDisplay;
 
         protected float oldSize = -1000;

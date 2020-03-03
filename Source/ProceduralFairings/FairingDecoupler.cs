@@ -17,10 +17,9 @@ namespace Keramzit
         [KSPField] public float ejectionLowDv;
         [KSPField] public float ejectionLowTorque;
 
-        [KSPField (isPersistant = true)] bool decoupled;
+        [KSPField(isPersistant = true)] bool decoupled;
 
         bool didForce;
-
         bool decouplerStagingSet = true;
 
         [KSPField] public string ejectSoundUrl = "Squad/Sounds/sound_decoupler_fire";
@@ -30,19 +29,19 @@ namespace Keramzit
         [KSPField] public Vector3 forceVector = Vector3.right;
         [KSPField] public Vector3 torqueVector = -Vector3.forward;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Ejection power")]
-        [UI_FloatRange (minValue = 0, maxValue = 1, stepIncrement = 0.01f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Ejection power", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [UI_FloatRange(minValue = 0, maxValue = 1, stepIncrement = 0.01f)]
         public float ejectionPower = 0.32f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Ejection torque")]
-        [UI_FloatRange (minValue = 0, maxValue = 1, stepIncrement = 0.01f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Ejection torque", groupName = PFUtils.PAWGroup)]
+        [UI_FloatRange(minValue = 0, maxValue = 1, stepIncrement = 0.01f)]
         public float torqueAmount = 0.01f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Fairing Decoupler")]
-        [UI_Toggle (disabledText = "Off", enabledText = "On", affectSymCounterparts = UI_Scene.All)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Fairing Decoupler", groupName = PFUtils.PAWGroup)]
+        [UI_Toggle(disabledText = "Off", enabledText = "On", affectSymCounterparts = UI_Scene.All)]
         public bool fairingStaged = true;
 
-        [KSPAction ("Jettison Fairing", actionGroup = KSPActionGroup.None)]
+        [KSPAction("Jettison Fairing", actionGroup = KSPActionGroup.None)]
         public void ActionJettison (KSPActionParam param)
         {
             OnJettisonFairing ();

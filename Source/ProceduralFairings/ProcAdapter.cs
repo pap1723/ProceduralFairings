@@ -13,16 +13,16 @@ namespace Keramzit
 {
     abstract class ProceduralAdapterBase : PartModule
     {
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Base", guiFormat = "S4", guiUnits = "m")]
-        [UI_FloatEdit (sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Base", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
         public float baseSize = 1.25f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Top", guiFormat = "S4", guiUnits = "m")]
-        [UI_FloatEdit (sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Top", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
         public float topSize = 1.25f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Height", guiFormat = "S4", guiUnits = "m")]
-        [UI_FloatEdit (sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 50, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Height", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 50, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
         public float height = 1;
 
         [KSPField] public string topNodeName = "top1";
@@ -209,6 +209,21 @@ namespace Keramzit
         public bool isTopNodePartPresent = true;
         public bool isFairingPresent = true;
 
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Extra height", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0, maxValue = 50, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
+        public float extraHeight = 0;
+
+        public bool engineFairingRemoved;
+
+        [KSPField(guiActiveEditor = true, guiName = "Mass", groupName = PFUtils.PAWGroup)]
+        public string massDisplay;
+
+        [KSPField(guiActiveEditor = true, guiName = "Cost", groupName = PFUtils.PAWGroup)]
+        public string costDisplay;
+
+        bool limitsSet;
+        float lastExtraHt = -1000;
+
         [KSPEvent (name = "decNoFairings", active = true, guiActive = true, guiActiveEditor = true, guiActiveUnfocused = true, guiName = "text")]
         public void UIToggleTopNodeDecouple ()
         {
@@ -263,21 +278,7 @@ namespace Keramzit
             }
         }
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Extra height", guiFormat = "S4", guiUnits = "m")]
-        [UI_FloatEdit (sigFigs = 3, unit = "m", minValue = 0, maxValue = 50, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
-        public float extraHeight = 0;
 
-        public bool engineFairingRemoved;
-
-        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Mass")]
-        public string massDisplay;
-
-        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Cost")]
-        public string costDisplay;
-
-        bool limitsSet;
-
-        float lastExtraHt = -1000;
 
         public override void checkTweakables ()
         {

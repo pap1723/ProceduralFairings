@@ -14,36 +14,35 @@ namespace Keramzit
     {
         [KSPField] public float outlineWidth = 0.05f;
         [KSPField] public int outlineSlices = 12;
-        [KSPField] public Vector4 outlineColor = new Vector4 (0, 0, 0.2f, 1);
+        [KSPField] public Vector4 outlineColor = new Vector4(0, 0, 0.2f, 1);
         [KSPField] public float verticalStep = 0.1f;
         [KSPField] public float baseSize = 1.25f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Extra radius")]
-        [UI_FloatRange (minValue = -1, maxValue = 2, stepIncrement = 0.01f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Extra radius", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [UI_FloatRange(minValue = -1, maxValue = 2, stepIncrement = 0.01f)]
         public float extraRadius;
 
         [KSPField] public int circleSegments = 24;
-
         [KSPField] public float sideThickness = 0.05f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Fairing Auto-struts")]
-        [UI_Toggle (disabledText = "Off", enabledText = "On")]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Fairing Auto-struts", groupName = PFUtils.PAWGroup)]
+        [UI_Toggle(disabledText = "Off", enabledText = "On")]
         public bool autoStrutSides = true;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Fairing Auto-shape")]
-        [UI_Toggle (disabledText = "Off", enabledText = "On")]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Fairing Auto-shape", groupName = PFUtils.PAWGroup)]
+        [UI_Toggle(disabledText = "Off", enabledText = "On")]
         public bool autoShape = true;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Max. size", guiFormat = "S4", guiUnits = "m")]
-        [UI_FloatEdit (sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Max. size", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
         public float manualMaxSize = 0.625f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Cyl. start", guiFormat = "S4", guiUnits = "m")]
-        [UI_FloatEdit (sigFigs = 3, unit = "m", minValue = 0, maxValue = 50, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Cyl. start", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0, maxValue = 50, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
         public float manualCylStart = 0;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Cyl. end", guiFormat = "S4", guiUnits = "m")]
-        [UI_FloatEdit (sigFigs = 3, unit = "m", minValue = 0, maxValue = 50, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Cyl. end", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0, maxValue = 50, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
         public float manualCylEnd = 1;
 
         bool limitsSet;
@@ -56,14 +55,10 @@ namespace Keramzit
 
         public float updateDelay;
         public bool needShapeUpdate = true;
-
         Part topBasePart;
-
         LineRenderer line;
-
         readonly List<LineRenderer> outline = new List<LineRenderer>();
-
-        List<ConfigurableJoint> joints = new List<ConfigurableJoint>();
+        readonly List<ConfigurableJoint> joints = new List<ConfigurableJoint>();
 
         public override string GetInfo ()
         {

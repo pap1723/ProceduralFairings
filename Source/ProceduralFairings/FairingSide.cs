@@ -13,13 +13,13 @@ namespace Keramzit
     public class ProceduralFairingSide : PartModule, IPartCostModifier, IPartMassModifier
     {
         [KSPField] public float minBaseConeAngle = 20;
-        [KSPField] public Vector4 baseConeShape = new Vector4 (0, 0, 0, 0);
-        [KSPField] public Vector4 noseConeShape = new Vector4 (0, 0, 0, 0);
+        [KSPField] public Vector4 baseConeShape = new Vector4(0, 0, 0, 0);
+        [KSPField] public Vector4 noseConeShape = new Vector4(0, 0, 0, 0);
 
-        [KSPField] public Vector2 mappingScale = new Vector2 (1024, 1024);
-        [KSPField] public Vector2 stripMapping = new Vector2 (992, 1024);
-        [KSPField] public Vector4 horMapping = new Vector4 (0, 480, 512, 992);
-        [KSPField] public Vector4 vertMapping = new Vector4 (0, 160, 704, 1024);
+        [KSPField] public Vector2 mappingScale = new Vector2(1024, 1024);
+        [KSPField] public Vector2 stripMapping = new Vector2(992, 1024);
+        [KSPField] public Vector4 horMapping = new Vector4(0, 480, 512, 992);
+        [KSPField] public Vector4 vertMapping = new Vector4(0, 160, 704, 1024);
 
         [KSPField] public float costPerTonne = 2000;
         [KSPField] public float specificBreakingForce = 2000;
@@ -40,82 +40,82 @@ namespace Keramzit
 
         public float totalMass;
 
-        [KSPField (isPersistant = true)] public int numSegs = 12;
-        [KSPField (isPersistant = true)] public int numSideParts = 2;
-        [KSPField (isPersistant = true)] public float baseRad;
-        [KSPField (isPersistant = true)] public float maxRad = 1.50f;
-        [KSPField (isPersistant = true)] public float cylStart = 0.5f;
-        [KSPField (isPersistant = true)] public float cylEnd = 2.5f;
-        [KSPField (isPersistant = true)] public float topRad;
-        [KSPField (isPersistant = true)] public float inlineHeight;
-        [KSPField (isPersistant = true)] public float sideThickness = 0.05f;
-        [KSPField (isPersistant = true)] public Vector3 meshPos = Vector3.zero;
-        [KSPField (isPersistant = true)] public Quaternion meshRot = Quaternion.identity;
+        [KSPField(isPersistant = true)] public int numSegs = 12;
+        [KSPField(isPersistant = true)] public int numSideParts = 2;
+        [KSPField(isPersistant = true)] public float baseRad;
+        [KSPField(isPersistant = true)] public float maxRad = 1.50f;
+        [KSPField(isPersistant = true)] public float cylStart = 0.5f;
+        [KSPField(isPersistant = true)] public float cylEnd = 2.5f;
+        [KSPField(isPersistant = true)] public float topRad;
+        [KSPField(isPersistant = true)] public float inlineHeight;
+        [KSPField(isPersistant = true)] public float sideThickness = 0.05f;
+        [KSPField(isPersistant = true)] public Vector3 meshPos = Vector3.zero;
+        [KSPField(isPersistant = true)] public Quaternion meshRot = Quaternion.identity;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Base Auto-shape")]
-        [UI_Toggle (disabledText = "Off", enabledText = "On")]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Base Auto-shape", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [UI_Toggle(disabledText = "Off", enabledText = "On")]
         public bool baseAutoShape = true;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiActive = false, guiName = "Base Curve Point A", guiFormat = "S4")]
-        [UI_FloatEdit (sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Base Point A", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float baseCurveStartX = 0.5f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiActive = false, guiName = "Base Curve Point B", guiFormat = "S4")]
-        [UI_FloatEdit (sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Base Point B", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float baseCurveStartY = 0.0f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiActive = false, guiName = "Base Curve Point C", guiFormat = "S4")]
-        [UI_FloatEdit (sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Base Point C", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float baseCurveEndX = 1.0f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiActive = false, guiName = "Base Curve Point D", guiFormat = "S4")]
-        [UI_FloatEdit (sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Base Point D", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float baseCurveEndY = 0.5f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Base Cone Segments")]
-        [UI_FloatRange (minValue = 1, maxValue = 12, stepIncrement = 1)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Base Cone Segments", groupName = PFUtils.PAWGroup)]
+        [UI_FloatRange(minValue = 1, maxValue = 12, stepIncrement = 1)]
         public float baseConeSegments = 5;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Nose Auto-shape")]
-        [UI_Toggle (disabledText = "Off", enabledText = "On")]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Nose Auto-shape", groupName = PFUtils.PAWGroup)]
+        [UI_Toggle(disabledText = "Off", enabledText = "On")]
         public bool noseAutoShape = true;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiActive = false, guiName = "Nose Curve Point A", guiFormat = "S4")]
-        [UI_FloatEdit (sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Nose Point A", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float noseCurveStartX = 0.5f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiActive = false, guiName = "Nose Curve Point B", guiFormat = "S4")]
-        [UI_FloatEdit (sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Nose Point B", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float noseCurveStartY = 0.0f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiActive = false, guiName = "Nose Curve Point C", guiFormat = "S4")]
-        [UI_FloatEdit (sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Nose Point C", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float noseCurveEndX = 1.0f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiActive = false, guiName = "Nose Curve Point D", guiFormat = "S4")]
-        [UI_FloatEdit (sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Nose Point D", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float noseCurveEndY = 0.5f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Nose Cone Segments")]
-        [UI_FloatRange (minValue = 1, maxValue = 12, stepIncrement = 1)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Nose Cone Segments", groupName = PFUtils.PAWGroup)]
+        [UI_FloatRange(minValue = 1, maxValue = 12, stepIncrement = 1)]
         public float noseConeSegments = 7;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiActive = false, guiName = "Nose-height Ratio", guiFormat = "S4")]
-        [UI_FloatEdit (sigFigs = 2, minValue = 0.1f, maxValue = 5.0f, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.01f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Nose-height Ratio", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 2, minValue = 0.1f, maxValue = 5.0f, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.01f)]
         public float noseHeightRatio = 2.0f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Shape")]
-        [UI_Toggle (disabledText = "Unlocked", enabledText = "Locked")]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Shape", groupName = PFUtils.PAWGroup)]
+        [UI_Toggle(disabledText = "Unlocked", enabledText = "Locked")]
         public bool shapeLock;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Density")]
-        [UI_FloatRange (minValue = 0.01f, maxValue = 1.0f, stepIncrement = 0.01f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Density", groupName = PFUtils.PAWGroup)]
+        [UI_FloatRange(minValue = 0.01f, maxValue = 1.0f, stepIncrement = 0.01f)]
         public float density = 0.2f;
 
-        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Mass")]
+        [KSPField(guiActiveEditor = true, guiName = "Mass", groupName = PFUtils.PAWGroup)]
         public string massDisplay;
 
-        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Cost")]
+        [KSPField(guiActiveEditor = true, guiName = "Cost", groupName = PFUtils.PAWGroup)]
         public string costDisplay;
 
         public ModifierChangeWhen GetModuleCostChangeWhen () { return ModifierChangeWhen.FIXED; }
