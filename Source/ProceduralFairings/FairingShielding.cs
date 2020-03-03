@@ -32,23 +32,20 @@ namespace Keramzit
 
         public override void OnStart (StartState state)
         {
-            if (!HighLogic.LoadedSceneIsEditor && !HighLogic.LoadedSceneIsFlight)
+            if (HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
             {
-                return;
+                reset();
+                GameEvents.onVesselWasModified.Add(onVesselModified);
+                GameEvents.onVesselGoOffRails.Add(onVesselUnpack);
+                GameEvents.onPartDie.Add(OnPartDestroyed);
             }
-
-            reset ();
-
-            GameEvents.onVesselWasModified.Add (new EventData<Vessel>.OnEvent (onVesselModified));
-            GameEvents.onVesselGoOffRails.Add (new EventData<Vessel>.OnEvent (onVesselUnpack));
-            GameEvents.onPartDie.Add (new EventData<Part>.OnEvent (OnPartDestroyed));
         }
 
         void OnDestroy ()
         {
-            GameEvents.onVesselWasModified.Remove (new EventData<Vessel>.OnEvent (onVesselModified));
-            GameEvents.onVesselGoOffRails.Remove (new EventData<Vessel>.OnEvent (onVesselUnpack));
-            GameEvents.onPartDie.Remove (new EventData<Part>.OnEvent (OnPartDestroyed));
+            GameEvents.onVesselWasModified.Remove(onVesselModified);
+            GameEvents.onVesselGoOffRails.Remove(onVesselUnpack);
+            GameEvents.onPartDie.Remove(OnPartDestroyed);
         }
 
         public void FixedUpdate ()

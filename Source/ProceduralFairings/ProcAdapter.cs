@@ -221,7 +221,6 @@ namespace Keramzit
         [KSPField(guiActiveEditor = true, guiName = "Cost", groupName = PFUtils.PAWGroup)]
         public string costDisplay;
 
-        bool limitsSet;
         float lastExtraHt = -1000;
 
         [KSPEvent (name = "decNoFairings", active = true, guiActive = true, guiActiveEditor = true, guiActiveUnfocused = true, guiName = "text")]
@@ -293,8 +292,8 @@ namespace Keramzit
         public override void OnStart (StartState state)
         {
             base.OnStart (state);
-
-            limitsSet = false;
+            if (HighLogic.LoadedSceneIsEditor)
+                ConfigureTechLimits();
 
             part.mass = totalMass;
 
@@ -304,22 +303,22 @@ namespace Keramzit
 
             UpdateUIdecNoFairingsText (topNodeDecouplesWhenFairingsGone);
 
-            GameEvents.onEditorShipModified.Add (OnEditorShipModified);
-            GameEvents.onVesselWasModified.Add (OnVesselWasModified);
-            GameEvents.onVesselCreate.Add (OnVesselCreate);
-            GameEvents.onVesselGoOffRails.Add (OnVesselGoOffRails);
-            GameEvents.onVesselLoaded.Add (OnVesselLoaded);
-            GameEvents.onStageActivate.Add (OnStageActivate);
+            GameEvents.onEditorShipModified.Add(OnEditorShipModified);
+            GameEvents.onVesselWasModified.Add(OnVesselWasModified);
+            GameEvents.onVesselCreate.Add(OnVesselCreate);
+            GameEvents.onVesselGoOffRails.Add(OnVesselGoOffRails);
+            GameEvents.onVesselLoaded.Add(OnVesselLoaded);
+            GameEvents.onStageActivate.Add(OnStageActivate);
         }
 
         public void OnDestroy ()
         {
-            GameEvents.onEditorShipModified.Remove (OnEditorShipModified);
-            GameEvents.onVesselWasModified.Remove (OnVesselWasModified);
-            GameEvents.onVesselCreate.Remove (OnVesselCreate);
-            GameEvents.onVesselGoOffRails.Remove (OnVesselGoOffRails);
-            GameEvents.onVesselLoaded.Remove (OnVesselLoaded);
-            GameEvents.onStageActivate.Remove (OnStageActivate);
+            GameEvents.onEditorShipModified.Remove(OnEditorShipModified);
+            GameEvents.onVesselWasModified.Remove(OnVesselWasModified);
+            GameEvents.onVesselCreate.Remove(OnVesselCreate);
+            GameEvents.onVesselGoOffRails.Remove(OnVesselGoOffRails);
+            GameEvents.onVesselLoaded.Remove(OnVesselLoaded);
+            GameEvents.onStageActivate.Remove(OnStageActivate);
         }
 
         bool isShipModified = true;
@@ -489,16 +488,12 @@ namespace Keramzit
             StartCoroutine (PFUtils.updateDragCubeCoroutine (part, dragAreaScale));
         }
 
-        public override void FixedUpdate ()
+        public void ConfigureTechLimits()
         {
-            base.FixedUpdate ();
-
-            if (!limitsSet && PFUtils.canCheckTech ())
+            if (PFUtils.canCheckTech())
             {
-                limitsSet = true;
-
-                float minSize = PFUtils.getTechMinValue ("PROCFAIRINGS_MINDIAMETER", 0.25f);
-                float maxSize = PFUtils.getTechMaxValue ("PROCFAIRINGS_MAXDIAMETER", 30);
+                float minSize = PFUtils.getTechMinValue("PROCFAIRINGS_MINDIAMETER", 0.25f);
+                float maxSize = PFUtils.getTechMaxValue("PROCFAIRINGS_MAXDIAMETER", 30);
 
                 PFUtils.setFieldRange(Fields[nameof(baseSize)], minSize, maxSize);
                 PFUtils.setFieldRange(Fields[nameof(topSize)], minSize, maxSize);
@@ -513,6 +508,15 @@ namespace Keramzit
                 (Fields[nameof(extraHeight)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
                 (Fields[nameof(extraHeight)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
             }
+            else if (HighLogic.LoadedSceneIsEditor && ResearchAndDevelopment.Instance == null)
+            {
+                Debug.LogError($"[PF] ConfigureTechLimits() in Editor but R&D not ready!");
+            }
+        }
+
+        public override void FixedUpdate ()
+        {
+            base.FixedUpdate ();
 
             if (isShipModified)
             {

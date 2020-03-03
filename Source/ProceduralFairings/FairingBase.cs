@@ -45,8 +45,6 @@ namespace Keramzit
         [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0, maxValue = 50, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
         public float manualCylEnd = 1;
 
-        bool limitsSet;
-
         [KSPField] public float diameterStepLarge = 1.25f;
         [KSPField] public float diameterStepSmall = 0.125f;
 
@@ -64,8 +62,6 @@ namespace Keramzit
 
         public override void OnStart (StartState state)
         {
-            limitsSet = false;
-
             if (!HighLogic.LoadedSceneIsEditor && !HighLogic.LoadedSceneIsFlight)
             {
                 return;
@@ -73,10 +69,11 @@ namespace Keramzit
 
             PFUtils.hideDragStuff (part);
 
-            GameEvents.onEditorShipModified.Add (new EventData<ShipConstruct>.OnEvent (onEditorVesselModified));
-
             if (HighLogic.LoadedSceneIsEditor)
             {
+                ConfigureTechLimits();
+                GameEvents.onEditorShipModified.Add(onEditorVesselModified);
+
                 if (line)
                 {
                     line.transform.Rotate (0, 90, 0);
@@ -303,14 +300,12 @@ namespace Keramzit
             }
         }
 
-        public virtual void FixedUpdate ()
+        public void ConfigureTechLimits()
         {
-            if (!limitsSet && PFUtils.canCheckTech ())
+            if (PFUtils.canCheckTech())
             {
-                limitsSet = true;
-
-                float minSize = PFUtils.getTechMinValue ("PROCFAIRINGS_MINDIAMETER", 0.25f);
-                float maxSize = PFUtils.getTechMaxValue ("PROCFAIRINGS_MAXDIAMETER", 30);
+                float minSize = PFUtils.getTechMinValue("PROCFAIRINGS_MINDIAMETER", 0.25f);
+                float maxSize = PFUtils.getTechMaxValue("PROCFAIRINGS_MAXDIAMETER", 30);
 
                 PFUtils.setFieldRange(Fields[nameof(manualMaxSize)], minSize, maxSize * 2);
 
@@ -322,7 +317,14 @@ namespace Keramzit
                 (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
                 (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
             }
+            else if (HighLogic.LoadedSceneIsEditor && ResearchAndDevelopment.Instance == null)
+            {
+                Debug.LogError($"[PF] ConfigureTechLimits() in Editor but R&D not ready!");
+            }
+        }
 
+        public virtual void FixedUpdate ()
+        {
             if (!part.packed && topBasePart != null)
             {
                 var adapter = part.GetComponent<ProceduralFairingAdapter>();
@@ -408,7 +410,7 @@ namespace Keramzit
 
         public void OnDestroy ()
         {
-            GameEvents.onEditorShipModified.Remove (new EventData<ShipConstruct>.OnEvent (onEditorVesselModified));
+            GameEvents.onEditorShipModified.Remove(onEditorVesselModified);
 
             if (line)
             {

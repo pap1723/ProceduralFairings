@@ -300,9 +300,9 @@ namespace Keramzit
 
             ClearJointLines ();
 
-            GameEvents.onGameSceneLoadRequested.Remove (new EventData<GameScenes>.OnEvent (OnGameSceneLoadRequested));
-            GameEvents.onVesselWasModified.Remove (new EventData<Vessel>.OnEvent (OnVesselModified));
-            GameEvents.onPartJointBreak.Remove (new EventData<PartJoint, float>.OnEvent (OnPartJointBreak));
+            GameEvents.onGameSceneLoadRequested.Remove(OnGameSceneLoadRequested);
+            GameEvents.onVesselWasModified.Remove(OnVesselModified);
+            GameEvents.onPartJointBreak.Remove (OnPartJointBreak);
         }
 
         void OnGameSceneLoadRequested (GameScenes scene)
@@ -382,13 +382,10 @@ namespace Keramzit
         {
             base.OnStart (state);
 
-            var _uiControlFlight = (UI_Toggle) Fields["viewJoints"].uiControlFlight;
-
-            _uiControlFlight.onFieldChanged = (Callback<BaseField, object>)Delegate.Combine (_uiControlFlight.onFieldChanged, new Callback<BaseField, object>(UIviewJoints_changed));
-
-            GameEvents.onGameSceneLoadRequested.Add (new EventData<GameScenes>.OnEvent (OnGameSceneLoadRequested));
-            GameEvents.onVesselWasModified.Add (new EventData<Vessel>.OnEvent (OnVesselModified));
-            GameEvents.onPartJointBreak.Add (new EventData<PartJoint, float>.OnEvent (OnPartJointBreak));
+            Fields[nameof(viewJoints)].uiControlFlight.onFieldChanged += UIviewJoints_changed;
+            GameEvents.onGameSceneLoadRequested.Add(OnGameSceneLoadRequested);
+            GameEvents.onVesselWasModified.Add(OnVesselModified);
+            GameEvents.onPartJointBreak.Add(OnPartJointBreak);
         }
 
         void OnVesselModified (Vessel v)

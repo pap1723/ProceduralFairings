@@ -35,7 +35,7 @@ namespace Keramzit
         public string costDisplay;
 
         protected float oldSize = -1000;
-        protected bool justLoaded, limitsSet;
+        protected bool justLoaded;
         public float totalMass;
 
         public ModifierChangeWhen GetModuleCostChangeWhen() => ModifierChangeWhen.FIXED;
@@ -52,10 +52,10 @@ namespace Keramzit
         {
             base.OnStart (state);
 
-            limitsSet = false;
+            if (HighLogic.LoadedSceneIsEditor)
+                ConfigureTechLimits();
 
             updateNodeSize (size);
-
             part.mass = totalMass;
         }
 
@@ -71,21 +71,26 @@ namespace Keramzit
             }
         }
 
-        public virtual void FixedUpdate ()
+        public void ConfigureTechLimits()
         {
-            if (!limitsSet && PFUtils.canCheckTech ())
+            if (PFUtils.canCheckTech())
             {
-                limitsSet = true;
-
-                float minSize = PFUtils.getTechMinValue (minSizeName, 0.25f);
-                float maxSize = PFUtils.getTechMaxValue (maxSizeName, 30);
+                float minSize = PFUtils.getTechMinValue(minSizeName, 0.25f);
+                float maxSize = PFUtils.getTechMaxValue(maxSizeName, 30);
 
                 PFUtils.setFieldRange(Fields[nameof(size)], minSize, maxSize);
 
                 (Fields[nameof(size)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
                 (Fields[nameof(size)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
             }
+            else if (HighLogic.LoadedSceneIsEditor && ResearchAndDevelopment.Instance == null)
+            {
+                Debug.LogError($"[PF] ConfigureTechLimits() in Editor but R&D not ready!");
+            }
+        }
 
+        public virtual void FixedUpdate ()
+        {
             if (!size.Equals (oldSize))
             {
                 resizePart (size);

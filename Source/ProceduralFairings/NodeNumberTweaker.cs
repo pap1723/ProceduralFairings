@@ -128,26 +128,13 @@ namespace Keramzit
             (Fields[nameof(radius)].uiControlEditor as UI_FloatEdit).incrementSmall = radiusStepSmall;
 
             Fields[nameof(radius)].guiActiveEditor = shouldResizeNodes;
-
-            //  Hide the interstage toggle button if there are no interstage nodes.
-
-            var nodes = part.FindAttachNodes ("interstage");
-
-            if (nodes == null)
-            {
-                Fields["showInterstageNodes"].guiActiveEditor = false;
-            }
+            Fields[nameof(showInterstageNodes)].guiActiveEditor = part.FindAttachNodes("interstage") != null;
 
             //  Change the GUI text if there are no fairing attachment nodes.
+            if (part.FindAttachNodes("connect") == null)
+                Fields[nameof(uiNumNodes)].guiName = "Side Nodes";
 
-            nodes = part.FindAttachNodes ("connect");
-
-            if (nodes == null)
-            {
-                Fields["uiNumNodes"].guiName = "Side Nodes";
-            }
-
-            ((UI_FloatRange) Fields["uiNumNodes"].uiControlEditor).maxValue = maxNumber;
+            (Fields[nameof(uiNumNodes)].uiControlEditor as UI_FloatRange).maxValue = maxNumber;
 
             uiNumNodes = numNodes;
             numNodesBefore = numNodes;
