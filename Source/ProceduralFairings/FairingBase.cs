@@ -80,35 +80,28 @@ namespace Keramzit
                 }
 
                 DestroyAllLineRenderers ();
-
                 destroyOutline ();
 
                 for (int i = 0; i < outlineSlices; ++i)
                 {
                     var r = makeLineRenderer ("fairing outline", outlineColor, outlineWidth);
-
                     outline.Add (r);
-
                     r.transform.Rotate (0, i * 360f / outlineSlices, 0);
                 }
 
                 ShowHideInterstageNodes ();
-
                 recalcShape ();
 
                 updateDelay = 0.1f;
-
                 needShapeUpdate = true;
             }
             else
             {
                 topBasePart = null;
 
-                var adapter = part.GetComponent<ProceduralFairingAdapter>();
-
-                if (adapter)
+                if (part.GetComponent<ProceduralFairingAdapter>() is ProceduralFairingAdapter adapter)
                 {
-                    topBasePart = adapter.getTopPart ();
+                    topBasePart = adapter.getTopPart();
                 }
                 else
                 {
@@ -116,13 +109,12 @@ namespace Keramzit
 
                     if (scan.targets.Count > 0)
                     {
-                        topBasePart = scan.targets [0];
+                        topBasePart = scan.targets[0];
                     }
                 }
             }
 
             SetUIChangedCallBacks ();
-
             OnToggleAutoshapeUI ();
         }
 
@@ -158,95 +150,53 @@ namespace Keramzit
         void onEditorVesselModified (ShipConstruct ship)
         {
             ShowHideInterstageNodes ();
-
             needShapeUpdate = true;
         }
 
         public void ShowHideInterstageNodes ()
         {
-            var nnt = part.GetComponent<KzNodeNumberTweaker>();
-
-            if (nnt)
+            if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt &&
+                part.FindAttachNodes("interstage") is AttachNode[] nodes)
             {
-                var nodes = part.FindAttachNodes ("interstage");
-
-                if (nodes == null)
+                float offset = nnt.showInterstageNodes ? 0 : 10000;
+                foreach (AttachNode node in nodes)
                 {
-                    return;
-                }
-
-                if (nnt.showInterstageNodes)
-                {
-                    for (int i = 0; i < nodes.Length; i++)
-                    {
-                        var node = nodes [i];
-
-                        if (node.attachedPart == null)
-                        {
-                            node.position.x = 0;
-                        }
-                    }
-                }
-                else
-                {
-                    for (int i = 0; i < nodes.Length; i++)
-                    {
-                        var node = nodes [i];
-
-                        if (node.attachedPart == null)
-                        {
-                            node.position.x = 10000;
-                        }
-                    }
+                    if (node.attachedPart == null)
+                        node.position.x = offset;
                 }
             }
         }
 
         public void removeJoints ()
         {
-            while (joints.Count > 0)
-            {
-                int i = joints.Count - 1;
-
-                var joint = joints [i]; joints.RemoveAt (i);
-
-                UnityEngine.Object.Destroy (joint);
-            }
+            foreach (ConfigurableJoint joint in joints)
+                Destroy(joint);
+            joints.Clear();
         }
 
         public void OnPartPack () => removeJoints ();
 
         ConfigurableJoint addStrut (Part p, Part pp)
         {
-            if (p == pp)
+            if (p && p != pp && p.Rigidbody != pp.Rigidbody && pp.Rigidbody is Rigidbody rb &&
+                p.gameObject.AddComponent<ConfigurableJoint>() is ConfigurableJoint joint)
             {
-                return null;
+                joint.xMotion = ConfigurableJointMotion.Locked;
+                joint.yMotion = ConfigurableJointMotion.Locked;
+                joint.zMotion = ConfigurableJointMotion.Locked;
+                joint.angularXMotion = ConfigurableJointMotion.Locked;
+                joint.angularYMotion = ConfigurableJointMotion.Locked;
+                joint.angularZMotion = ConfigurableJointMotion.Locked;
+                joint.projectionDistance = 0.1f;
+                joint.projectionAngle = 5;
+                joint.breakForce = p.breakingForce;
+                joint.breakTorque = p.breakingTorque;
+                joint.connectedBody = rb;
+
+                joints.Add(joint);
+                return joint;
             }
-
-            var rb = pp.Rigidbody;
-
-            if (rb == null || rb == p.Rigidbody)
-            {
-                return null;
-            }
-
-            var joint = p.gameObject.AddComponent<ConfigurableJoint>();
-
-            joint.xMotion = ConfigurableJointMotion.Locked;
-            joint.yMotion = ConfigurableJointMotion.Locked;
-            joint.zMotion = ConfigurableJointMotion.Locked;
-            joint.angularXMotion = ConfigurableJointMotion.Locked;
-            joint.angularYMotion = ConfigurableJointMotion.Locked;
-            joint.angularZMotion = ConfigurableJointMotion.Locked;
-            joint.projectionDistance = 0.1f;
-            joint.projectionAngle = 5;
-            joint.breakForce = p.breakingForce;
-            joint.breakTorque = p.breakingTorque;
-            joint.connectedBody = rb;
-
-            joints.Add (joint);
-
-            return joint;
+            return null;
         }
 
         IEnumerator<YieldInstruction> createAutoStruts (List<Part> shieldedParts)
@@ -255,32 +205,18 @@ namespace Keramzit
             {
                 yield return new WaitForFixedUpdate ();
             }
-
-            var nnt = part.GetComponent<KzNodeNumberTweaker>();
-
-            var attached = part.FindAttachNodes ("connect");
-
-            for (int i = 0; i < nnt.numNodes; ++i)
+            if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt &&
+                part.FindAttachNodes("connect") is AttachNode[] attached)
             {
-                var p = attached [i].attachedPart;
-
-                if (p == null || p.Rigidbody == null)
+                for (int i = 0; i < nnt.numNodes; ++i)
                 {
-                    continue;
-                }
-
-                var pp = attached [i > 0 ? i - 1 : nnt.numNodes - 1].attachedPart;
-
-                if (pp == null)
-                {
-                    continue;
-                }
-
-                addStrut (p, pp);
-
-                if (topBasePart != null)
-                {
-                    addStrut (p, topBasePart);
+                    if (attached[i].attachedPart is Part p && p.Rigidbody &&
+                        attached[i > 0 ? i - 1 : nnt.numNodes - 1].attachedPart is Part pp)
+                    {
+                        addStrut(p, pp);
+                        if (topBasePart != null)
+                            addStrut(p, topBasePart);
+                    }
                 }
             }
         }
@@ -289,15 +225,8 @@ namespace Keramzit
 
         public void onShieldingEnabled (List<Part> shieldedParts)
         {
-            if (!HighLogic.LoadedSceneIsFlight)
-            {
-                return;
-            }
-
-            if (autoStrutSides)
-            {
-                StartCoroutine(createAutoStruts (shieldedParts));
-            }
+            if (HighLogic.LoadedSceneIsFlight && autoStrutSides)
+                StartCoroutine(createAutoStruts(shieldedParts));
         }
 
         public void ConfigureTechLimits()
@@ -325,19 +254,12 @@ namespace Keramzit
 
         public virtual void FixedUpdate ()
         {
-            if (!part.packed && topBasePart != null)
+            if (!part.packed && topBasePart != null &&
+                part.GetComponent<ProceduralFairingAdapter>() is ProceduralFairingAdapter adapter)
             {
-                var adapter = part.GetComponent<ProceduralFairingAdapter>();
-
-                if (adapter)
-                {
-                    topBasePart = adapter.getTopPart ();
-
-                    if (topBasePart == null)
-                    {
-                        removeJoints ();
-                    }
-                }
+                topBasePart = adapter.getTopPart();
+                if (topBasePart == null)
+                    removeJoints ();
             }
         }
 
@@ -352,7 +274,7 @@ namespace Keramzit
             var lineRenderer = o.AddComponent<LineRenderer>();
 
             lineRenderer.useWorldSpace = false;
-            lineRenderer.material = new Material (Shader.Find ("Legacy Shaders/Particles/Additive"));
+            lineRenderer.material = new Material(Shader.Find("Legacy Shaders/Particles/Additive"));
             lineRenderer.startColor = color;
             lineRenderer.endColor = color;
             lineRenderer.startWidth = wd;
@@ -364,11 +286,8 @@ namespace Keramzit
 
         void destroyOutline ()
         {
-            for (int i = 0; i < outline.Count; i++)
-            {
-                Destroy (outline [i].gameObject);
-            }
-
+            foreach (LineRenderer r in outline)
+                Destroy(r.gameObject);
             outline.Clear ();
         }
 
@@ -379,31 +298,12 @@ namespace Keramzit
 
         void DestroyAllLineRenderers ()
         {
-            LineRenderer [] lr = FindObjectsOfType<LineRenderer>();
-
-            if (lr != null)
+            foreach (LineRenderer r in FindObjectsOfType<LineRenderer>())
             {
-                for (int i = 0; i < lr.Length; i++)
+                if (r?.transform?.parent?.gameObject is GameObject go &&
+                    (go == this || go == this.gameObject))
                 {
-                    Transform _transform = lr[i].transform;
-
-                    if (_transform != null)
-                    {
-                        Transform _parent = _transform.parent;
-
-                        if (_parent != null)
-                        {
-                            GameObject _gameObject = _parent.gameObject;
-
-                            if (_gameObject)
-                            {
-                                if ((_gameObject.Equals (this) ? true : _gameObject.Equals (gameObject)))
-                                {
-                                    GameObjectExtension.DestroyGameObject (lr [i].gameObject);
-                                }
-                            }
-                        }
-                    }
+                    Destroy(r.gameObject);
                 }
             }
         }
@@ -415,12 +315,9 @@ namespace Keramzit
             if (line)
             {
                 Destroy (line.gameObject);
-
                 line = null;
             }
-
             DestroyAllLineRenderers ();
-
             destroyOutline ();
         }
 
@@ -538,36 +435,21 @@ namespace Keramzit
         PayloadScan scanPayload ()
         {
             //  Scan the payload and build it's profile.
-
             var scan = new PayloadScan (part, verticalStep, extraRadius);
 
-            AttachNode node = part.FindAttachNode ("top");
-
-            if (node != null)
+            if (part.FindAttachNode("top") is AttachNode node)
             {
                 scan.ofs = node.position.y;
-
                 if (node.attachedPart != null)
-                {
                     scan.addPart (node.attachedPart, part);
-                }
             }
 
-            AttachNode [] nodes = part.FindAttachNodes ("interstage");
-
-            if (nodes != null)
+            if (part.FindAttachNodes("interstage") is AttachNode[] nodes)
             {
-                for (int j = 0; j < nodes.Length; j++)
+                foreach (AttachNode n in nodes)
                 {
-                    node = nodes [j];
-
-                    if (node != null)
-                    {
-                        if (node.attachedPart != null)
-                        {
-                            scan.addPart (node.attachedPart, part);
-                        }
-                    }
+                    if (n.attachedPart != null)
+                        scan.addPart (n.attachedPart, part);
                 }
             }
 
@@ -576,58 +458,37 @@ namespace Keramzit
                 var cp = scan.payload [i];
 
                 //  Add any connected payload parts.
-
                 scan.addPart (cp.parent, cp);
-
-                for (int j = 0; j < cp.children.Count; j++)
+                foreach (Part child in cp.children)
                 {
-                    scan.addPart(cp.children[j], cp);
+                    scan.addPart(child, cp);
                 }
 
                 //  Scan for the part colliders.
-
-                var colls = cp.FindModelComponents<Collider>();
-
-                for (int j = 0; j < colls.Count; j++)
+                foreach (Collider coll in cp.FindModelComponents<Collider>())
                 {
-                    var coll = colls [j];
-
                     //  Skip ladders etc...
-
-                    if (coll.tag != "Untagged")
-                    {
-                        continue;
-                    }
-
-                    scan.addPayload (coll);
+                    if (coll.tag.Equals("Untagged"))
+                        scan.addPayload(coll);
                 }
             }
 
             return scan;
         }
 
-        AttachNode HasNodeComponent<type> (AttachNode [] nodes)
+        AttachNode HasNodeComponent<type>(AttachNode[] nodes)
         {
             if (nodes != null)
             {
-                for (int i = 0; i < nodes.Length; i++)
+                foreach (AttachNode node in nodes)
                 {
-                    var partAttached = nodes [i].attachedPart;
-
-                    if (partAttached == null)
+                    if (node.attachedPart is Part p)
                     {
-                        continue;
-                    }
-
-                    var comp = partAttached.GetComponent<type>();
-
-                    if (!comp.Equals (null))
-                    {
-                        return nodes [i];
+                        if (p.GetComponent<type>() is type)
+                            return node;
                     }
                 }
             }
-
             return null;
         }
 
@@ -711,14 +572,11 @@ namespace Keramzit
             //  Check for attached side parts.
 
             var attached = part.FindAttachNodes ("connect");
+            var sideNode = HasNodeComponent<ProceduralFairingSide>(attached);
 
             //  Get the number of available fairing attachment nodes from NodeNumberTweaker.
-
             var nnt = part.GetComponent<KzNodeNumberTweaker>();
-
             int numSideParts = nnt.numNodes;
-
-            var sideNode = HasNodeComponent<ProceduralFairingSide>(attached);
 
             var baseConeShape = new Vector4 (0, 0, 0, 0);
             var noseConeShape = new Vector4 (0, 0, 0, 0);
@@ -783,14 +641,9 @@ namespace Keramzit
             if (isInline)
             {
                 profTop = Mathf.CeilToInt ((topY - scan.ofs) / verticalStep);
-
-                if (profTop > scan.profile.Count)
-                {
-                    profTop = scan.profile.Count;
-                }
+                profTop = Math.Min(profTop, scan.profile.Count);
 
                 maxRad = 0;
-
                 for (int i = 0; i < profTop; ++i)
                 {
                     maxRad = Mathf.Max (maxRad, scan.profile [i]);
@@ -950,160 +803,110 @@ namespace Keramzit
                 cylStart = manualCylStart;
                 cylEnd = manualCylEnd;
             }
-
-            if (cylStart > cylEnd)
-            {
-                cylStart = cylEnd;
-            }
+            cylStart = Math.Min(cylStart, cylEnd);
 
             //  Build the fairing shape line.
 
-            Vector3 [] shape;
-
-            if (isInline)
-            {
-                shape = buildInlineFairingShape (baseRad, maxRad, topRad, cylStart, cylEnd, topY, baseConeShape, baseConeSegments, vertMapping, mappingScale.y);
-            }
-            else
-            {
-                shape = buildFairingShape (baseRad, maxRad, cylStart, cylEnd, noseHeightRatio, baseConeShape, noseConeShape, baseConeSegments, noseConeSegments, vertMapping, mappingScale.y);
-            }
+            Vector3[] shape = isInline ? buildInlineFairingShape(baseRad, maxRad, topRad, cylStart, cylEnd, topY, baseConeShape, baseConeSegments, vertMapping, mappingScale.y) :
+                                        buildFairingShape(baseRad, maxRad, cylStart, cylEnd, noseHeightRatio, baseConeShape, noseConeShape, baseConeSegments, noseConeSegments, vertMapping, mappingScale.y);
 
             if (sideNode == null && topSideNode == null)
             {
                 //  No side parts - fill fairing outlines.
-
-                for (int j = 0; j < outline.Count; j++)
+                foreach (LineRenderer lr in outline)
                 {
-                    var lr = outline [j];
-
                     lr.positionCount = shape.Length;
-
                     for (int i = 0; i < shape.Length; ++i)
                     {
-                        lr.SetPosition (i, new Vector3 (shape [i].x, shape [i].y));
+                        lr.SetPosition(i, new Vector3(shape[i].x, shape[i].y));
                     }
                 }
             }
             else
             {
-                for (int j = 0; j < outline.Count; j++)
+                foreach (LineRenderer lr in outline)
                 {
-                    var lr = outline [j];
-
                     lr.positionCount = 0;
                 }
             }
 
             //  Rebuild the side parts.
 
-            int numSegs = circleSegments / numSideParts;
+            int numSegs = Math.Max(2, circleSegments / numSideParts);
 
-            if (numSegs < 2)
+            foreach (AttachNode sn in attached)
             {
-                numSegs = 2;
+                if (sn.attachedPart is Part sp &&
+                    sp.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide sf &&
+                    !sf.shapeLock &&
+                    sp.FindModelComponent<MeshFilter>("model") is MeshFilter mf)
+                {
+                    var nodePos = sn.position;
+
+                    mf.transform.position = part.transform.position;
+                    mf.transform.rotation = part.transform.rotation;
+
+                    float ra = Mathf.Atan2(-nodePos.z, nodePos.x) * Mathf.Rad2Deg;
+
+                    mf.transform.Rotate(0, ra, 0);
+
+                    if (sf.meshPos == mf.transform.localPosition
+                     && sf.meshRot == mf.transform.localRotation
+                     && sf.numSegs == numSegs
+                     && sf.numSideParts == numSideParts
+                     && sf.baseRad.Equals(baseRad)
+                     && sf.maxRad.Equals(maxRad)
+                     && sf.cylStart.Equals(cylStart)
+                     && sf.cylEnd.Equals(cylEnd)
+                     && sf.topRad.Equals(topRad)
+                     && sf.inlineHeight.Equals(topY)
+                     && sf.sideThickness.Equals(sideThickness)
+                     && !sf.baseCurveStartX.Equals(baseCurveStartX)
+                     && !sf.baseCurveStartY.Equals(baseCurveStartY)
+                     && !sf.baseCurveEndX.Equals(baseCurveEndX)
+                     && !sf.baseCurveEndY.Equals(baseCurveEndY)
+                     && !sf.baseConeSegments.Equals(baseConeSegments)
+                     && !sf.noseCurveStartX.Equals(noseCurveStartX)
+                     && !sf.noseCurveStartY.Equals(noseCurveStartY)
+                     && !sf.noseCurveEndX.Equals(noseCurveEndX)
+                     && !sf.noseCurveEndY.Equals(noseCurveEndY)
+                     && !sf.noseConeSegments.Equals(noseConeSegments)
+                     && !sf.noseHeightRatio.Equals(noseHeightRatio)
+                     && !sf.density.Equals(density))
+                    {
+                        continue;
+                    }
+
+                    sf.meshPos = mf.transform.localPosition;
+                    sf.meshRot = mf.transform.localRotation;
+                    sf.numSegs = numSegs;
+                    sf.numSideParts = numSideParts;
+                    sf.baseRad = baseRad;
+                    sf.maxRad = maxRad;
+                    sf.cylStart = cylStart;
+                    sf.cylEnd = cylEnd;
+                    sf.topRad = topRad;
+                    sf.inlineHeight = topY;
+                    sf.sideThickness = sideThickness;
+                    sf.baseCurveStartX = baseCurveStartX;
+                    sf.baseCurveStartY = baseCurveStartY;
+                    sf.baseCurveEndX = baseCurveEndX;
+                    sf.baseCurveEndY = baseCurveEndY;
+                    sf.baseConeSegments = baseConeSegments;
+                    sf.noseCurveStartX = noseCurveStartX;
+                    sf.noseCurveStartY = noseCurveStartY;
+                    sf.noseCurveEndX = noseCurveEndX;
+                    sf.noseCurveEndY = noseCurveEndY;
+                    sf.noseConeSegments = noseConeSegments;
+                    sf.noseHeightRatio = noseHeightRatio;
+                    sf.density = density;
+
+                    sf.rebuildMesh();
+                }
             }
 
-            for (int i = 0; i < attached.Length; i++)
-            {
-                var sn = attached [i];
-                var sp = sn.attachedPart;
-
-                if (!sp)
-                {
-                    continue;
-                }
-
-                var sf = sp.GetComponent<ProceduralFairingSide>();
-
-                if (!sf)
-                {
-                    continue;
-                }
-
-                if (sf.shapeLock)
-                {
-                    continue;
-                }
-
-                var mf = sp.FindModelComponent<MeshFilter>("model");
-
-                if (!mf)
-                {
-                    Debug.LogError ("[PF]: No model in side fairing!", sp);
-
-                    continue;
-                }
-
-                var nodePos = sn.position;
-
-                mf.transform.position = part.transform.position;
-                mf.transform.rotation = part.transform.rotation;
-
-                float ra = Mathf.Atan2 (-nodePos.z, nodePos.x) * Mathf.Rad2Deg;
-
-                mf.transform.Rotate (0, ra, 0);
-
-                if (sf.meshPos == mf.transform.localPosition
-                 && sf.meshRot == mf.transform.localRotation
-                 && sf.numSegs == numSegs
-                 && sf.numSideParts == numSideParts
-                 && sf.baseRad.Equals (baseRad)
-                 && sf.maxRad.Equals (maxRad)
-                 && sf.cylStart.Equals (cylStart)
-                 && sf.cylEnd.Equals (cylEnd)
-                 && sf.topRad.Equals (topRad)
-                 && sf.inlineHeight.Equals (topY)
-                 && sf.sideThickness.Equals (sideThickness)
-                 && !sf.baseCurveStartX.Equals (baseCurveStartX)
-                 && !sf.baseCurveStartY.Equals (baseCurveStartY)
-                 && !sf.baseCurveEndX.Equals (baseCurveEndX)
-                 && !sf.baseCurveEndY.Equals (baseCurveEndY)
-                 && !sf.baseConeSegments.Equals (baseConeSegments)
-                 && !sf.noseCurveStartX.Equals (noseCurveStartX)
-                 && !sf.noseCurveStartY.Equals (noseCurveStartY)
-                 && !sf.noseCurveEndX.Equals (noseCurveEndX)
-                 && !sf.noseCurveEndY.Equals (noseCurveEndY)
-                 && !sf.noseConeSegments.Equals (noseConeSegments)
-                 && !sf.noseHeightRatio.Equals (noseHeightRatio)
-                 && !sf.density.Equals (density))
-                {
-                    continue;
-                }
-
-                sf.meshPos = mf.transform.localPosition;
-                sf.meshRot = mf.transform.localRotation;
-                sf.numSegs = numSegs;
-                sf.numSideParts = numSideParts;
-                sf.baseRad = baseRad;
-                sf.maxRad = maxRad;
-                sf.cylStart = cylStart;
-                sf.cylEnd = cylEnd;
-                sf.topRad = topRad;
-                sf.inlineHeight = topY;
-                sf.sideThickness = sideThickness;
-                sf.baseCurveStartX = baseCurveStartX;
-                sf.baseCurveStartY = baseCurveStartY;
-                sf.baseCurveEndX = baseCurveEndX;
-                sf.baseCurveEndY = baseCurveEndY;
-                sf.baseConeSegments = baseConeSegments;
-                sf.noseCurveStartX = noseCurveStartX;
-                sf.noseCurveStartY = noseCurveStartY;
-                sf.noseCurveEndX = noseCurveEndX;
-                sf.noseCurveEndY = noseCurveEndY;
-                sf.noseConeSegments = noseConeSegments;
-                sf.noseHeightRatio = noseHeightRatio;
-                sf.density = density;
-
-                sf.rebuildMesh ();
-            }
-
-            var shielding = part.GetComponent<KzFairingBaseShielding>();
-
-            if (shielding)
-            {
+            if (part.GetComponent<KzFairingBaseShielding>() is KzFairingBaseShielding shielding)
                 shielding.reset ();
-            }
         }
     }
 }

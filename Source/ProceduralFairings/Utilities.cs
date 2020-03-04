@@ -49,85 +49,44 @@ namespace Keramzit
             return ResearchAndDevelopment.GetTechnologyState (name) == RDTech.State.Available;
         }
 
-        public static float getTechMinValue (string cfgname, float defVal)
+        public static void GetTechLimits(string cfgName, out float minVal, out float maxVal)
         {
-            bool hasValue = false;
-            float minVal = 0;
-
-            var confnodes = GameDatabase.Instance.GetConfigNodes (cfgname);
-
-            for (int j = 0; j < confnodes.Length; j++)
+            minVal = float.PositiveInfinity;
+            maxVal = float.NegativeInfinity;
+            foreach (ConfigNode tech in GameDatabase.Instance.GetConfigNodes(cfgName))
             {
-                var tech = confnodes [j];
-
-                for (int i = 0; i < tech.values.Count; ++i)
+                foreach (ConfigNode.Value value in tech.values)
                 {
-                    var value = tech.values [i];
-
-                    if (!haveTech(value.name))
+                    if (haveTech(value.name))
                     {
-                        continue;
-                    }
-
-                    float v = float.Parse (value.value);
-
-                    if (!hasValue || v < minVal)
-                    {
-                        minVal = v;
-                        hasValue = true;
+                        minVal = Mathf.Min(minVal, float.Parse(value.value));
+                        maxVal = Mathf.Max(maxVal, float.Parse(value.value));
                     }
                 }
             }
-
-            return (!hasValue) ? defVal : minVal;
         }
 
-        public static float getTechMaxValue (string cfgname, float defVal)
+        public static float getTechMinValue(string cfgname, float defVal)
         {
-            bool hasValue = false;
-            float maxVal = 0;
-
-            var confnodes = GameDatabase.Instance.GetConfigNodes (cfgname);
-
-            for (int j = 0; j < confnodes.Length; j++)
-            {
-                var tech = confnodes [j];
-
-                for (int i = 0; i < tech.values.Count; ++i)
-                {
-                    var value = tech.values [i];
-
-                    if (!haveTech(value.name))
-                    {
-                        continue;
-                    }
-
-                    float v = float.Parse (value.value);
-
-                    if (!hasValue || v > maxVal)
-                    {
-                        maxVal = v;
-                        hasValue = true;
-                    }
-                }
-            }
-
-            return (!hasValue) ? defVal : maxVal;
+            GetTechLimits(cfgname, out float minVal, out float _);
+            return float.IsPositiveInfinity(minVal) ? defVal : minVal;
         }
 
-        public static void setFieldRange (BaseField field, float minval, float maxval)
+        public static float getTechMaxValue(string cfgname, float defVal)
         {
-            var fr = field.uiControlEditor as UI_FloatRange;
+            GetTechLimits(cfgname, out float _, out float maxVal);
+            return float.IsNegativeInfinity(maxVal) ? defVal : maxVal;
+        }
 
-            if (fr != null)
+        public static void setFieldRange(BaseField field, float minval, float maxval)
+        {
+            if (field.uiControlEditor is UI_FloatRange fr)
             {
                 fr.minValue = minval;
                 fr.maxValue = maxval;
             }
 
-            var fe = field.uiControlEditor as UI_FloatEdit;
-
-            if (fe != null)
+            if (field.uiControlEditor is UI_FloatEdit fe)
             {
                 fe.minValue = minval;
                 fe.maxValue = maxval;
@@ -136,40 +95,25 @@ namespace Keramzit
 
         public static void updateAttachedPartPos (AttachNode node, Part part)
         {
-            if (node == null || part == null)
+            if (node is AttachNode && part is Part && 
+                node.attachedPart is Part ap && ap.FindAttachNodeByPart(part) is AttachNode an)
             {
-                return;
-            }
+                var dp = part.transform.TransformPoint(node.position) - ap.transform.TransformPoint(an.position);
 
-            var ap = node.attachedPart;
-
-            if (!ap)
-            {
-                return;
-            }
-
-            var an = ap.FindAttachNodeByPart (part);
-
-            if (an == null)
-            {
-                return;
-            }
-
-            var dp = part.transform.TransformPoint (node.position) - ap.transform.TransformPoint (an.position);
-
-            if (ap == part.parent)
-            {
-                while (ap.parent) ap = ap.parent;
-                ap.transform.position += dp;
-                part.transform.position -= dp;
-            }
-            else
-            {
-                ap.transform.position += dp;
+                if (ap == part.parent)
+                {
+                    while (ap.parent) ap = ap.parent;
+                    ap.transform.position += dp;
+                    part.transform.position -= dp;
+                }
+                else
+                {
+                    ap.transform.position += dp;
+                }
             }
         }
 
-        public static string formatMass(float mass) => (mass < 0.01) ? $"{mass * 1e3:N3}kg" : "{mass:N3}t";
+        public static string formatMass(float mass) => (mass < 0.01) ? $"{mass * 1e3:N3}kg" : $"{mass:N3}t";
         public static string formatCost(float cost) => $"{cost:N0}";
 
         public static void enableRenderer (Transform t, bool e)
@@ -199,66 +143,46 @@ namespace Keramzit
                 Debug.Log ("[PF]: Calling FAR to update voxels...");
                 part.SendMessage ("GeometryPartModuleRebuildMeshData");
             }
-
-            if (!HighLogic.LoadedSceneIsFlight)
+            if (HighLogic.LoadedSceneIsFlight)
             {
-                return;
+                enableRenderer(part.FindModelTransform("dragOnly"), true);
+                var dragCube = DragCubeSystem.Instance.RenderProceduralDragCube(part);
+                enableRenderer(part.FindModelTransform("dragOnly"), false);
+
+                for (int i = 0; i < 6; ++i)
+                {
+                    dragCube.Area[i] *= areaScale;
+                }
+
+                part.DragCubes.ClearCubes();
+                part.DragCubes.Cubes.Add(dragCube);
+                part.DragCubes.ResetCubeWeights();
+                part.DragCubes.ForceUpdate(true, true, false);
             }
-
-            enableRenderer (part.FindModelTransform ("dragOnly"), true);
-
-            var dragCube = DragCubeSystem.Instance.RenderProceduralDragCube (part);
-
-            enableRenderer (part.FindModelTransform ("dragOnly"), false);
-
-            for (int i = 0; i < 6; ++i)
-            {
-                dragCube.Area [i] *= areaScale;
-            }
-
-            part.DragCubes.ClearCubes();
-            part.DragCubes.Cubes.Add(dragCube);
-            part.DragCubes.ResetCubeWeights();
-            part.DragCubes.ForceUpdate(true, true, false);
         }
 
         public static IEnumerator<YieldInstruction> updateDragCubeCoroutine (Part part, float areaScale)
         {
             while (true)
             {
-                if (part == null || part.Equals (null))
-                {
-                    yield break;
-                }
-
+                if (part == null) yield break;
+                if (!HighLogic.LoadedSceneIsEditor && !HighLogic.LoadedSceneIsFlight) yield break;
                 if (HighLogic.LoadedSceneIsFlight)
                 {
-                    if (part.vessel == null || part.vessel.Equals (null))
-                    {
-                        yield break;
-                    }
-
+                    if (part.vessel == null) yield break;
                     if (!FlightGlobals.ready || part.packed || !part.vessel.loaded)
                     {
                         yield return new WaitForFixedUpdate ();
-
                         continue;
                     }
-
                     break;
-                }
-
-                if (HighLogic.LoadedSceneIsEditor)
+                } else if (HighLogic.LoadedSceneIsEditor)
                 {
                     yield return new WaitForFixedUpdate ();
-
                     break;
                 }
-
-                yield break;
             }
-
-            PFUtils.updateDragCube (part, areaScale);
+            updateDragCube(part, areaScale);
         }
 
         public static Part partFromHit (this RaycastHit hit)
@@ -274,14 +198,10 @@ namespace Keramzit
 
             while (p == null)
             {
-                if (go.transform != null && go.transform.parent != null && go.transform.parent.gameObject != null)
-                {
+                if (go?.transform?.parent?.gameObject != null)
                     go = go.transform.parent.gameObject;
-                }
                 else
-                {
                     break;
-                }
 
                 p = Part.FromGO (go);
             }
@@ -294,15 +214,11 @@ namespace Keramzit
             var children = new List<Part>();
 
             if (!root)
-            {
                 children.Add (rootPart);
-            }
 
-            for (int i = 0; i < rootPart.children.Count; i++)
+            foreach (Part child in rootPart.children)
             {
-                var child = rootPart.children [i];
-
-                children.AddRange (child.getAllChildrenRecursive (false));
+                children.AddRange(child.getAllChildrenRecursive(false));
             }
 
             return children;
@@ -310,16 +226,9 @@ namespace Keramzit
 
         public static float GetMaxValueFromList (List<float> list)
         {
-            float max = 0;
-
-            for (int i = 0; i < list.Count; i++)
-            {
-                if (max < list [i])
-                {
-                    max = list [i];
-                }
-            }
-
+            float max = float.NegativeInfinity;
+            foreach (float f in list)
+                max = Mathf.Max(max, f);
             return max;
         }
     }

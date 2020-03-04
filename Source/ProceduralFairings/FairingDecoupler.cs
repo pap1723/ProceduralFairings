@@ -42,7 +42,21 @@ namespace Keramzit
         public bool fairingStaged = true;
 
         [KSPAction("Jettison Fairing", actionGroup = KSPActionGroup.None)]
-        public void ActionJettison (KSPActionParam param) => OnJettisonFairing ();
+        public void ActionJettison (KSPActionParam param) => OnJettisonFairing();
+
+        [KSPEvent(name = "Jettison", active = true, guiActive = true, guiName = "Jettison Fairing", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        public void OnJettisonFairing()
+        {
+            decoupled |= fairingStaged;
+        }
+
+        public override void OnActive() => OnJettisonFairing();
+
+        public override void OnLoad(ConfigNode node)
+        {
+            base.OnLoad(node);
+            didForce = decoupled;
+        }
 
         public void FixedUpdate ()
         {
@@ -55,7 +69,6 @@ namespace Keramzit
                 if (decouplerStagingSet)
                 {
                     OnSetStagingIcons ();
-
                     decouplerStagingSet = false;
                 }
             }
@@ -65,35 +78,19 @@ namespace Keramzit
                 if (part.parent)
                 {
                     var pfa = part.parent.GetComponent<ProceduralFairingAdapter>();
-
-                    for (int i = 0; i < part.parent.children.Count; i++)
+                    foreach (Part p in part.parent.children)
                     {
-                        var p = part.parent.children [i];
-
                         //  Check if the top node allows decoupling when the fairing is also decoupled.
 
-                        if (pfa)
+                        if (pfa && !pfa.topNodeDecouplesWhenFairingsGone && p.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide)
+                            continue;
+
+                        if (p.GetComponents<ConfigurableJoint>() is ConfigurableJoint[] joints)
                         {
-                            if (!pfa.topNodeDecouplesWhenFairingsGone)
+                            foreach (ConfigurableJoint joint in joints)
                             {
-                                var isFairing = p.GetComponent<ProceduralFairingSide>();
-
-                                if (!isFairing)
-                                {
-                                    continue;
-                                }
-                            }
-                        }
-
-                        var joints = p.GetComponents<ConfigurableJoint>();
-
-                        for (int j = 0; j < joints.Length; j++)
-                        {
-                            var joint = joints [j];
-
-                            if (joint != null && (joint.GetComponent<Rigidbody>() == part.Rigidbody || joint.connectedBody == part.Rigidbody))
-                            {
-                                Destroy (joint);
+                                if (joint.GetComponent<Rigidbody>() == part.Rigidbody || joint.connectedBody == part.Rigidbody)
+                                    Destroy(joint);
                             }
                         }
                     }
@@ -104,9 +101,7 @@ namespace Keramzit
                 }
                 else if (!didForce)
                 {
-                    var tr = part.FindModelTransform (transformName);
-
-                    if (tr)
+                    if (part.FindModelTransform(transformName) is Transform tr)
                     {
                         part.Rigidbody.AddForce (tr.TransformDirection (forceVector) * Mathf.Lerp (ejectionLowDv, ejectionDv, ejectionPower), ForceMode.VelocityChange);
                         part.Rigidbody.AddTorque (tr.TransformDirection (torqueVector) * Mathf.Lerp (ejectionLowTorque, ejectionTorque, torqueAmount), ForceMode.VelocityChange);
@@ -122,19 +117,6 @@ namespace Keramzit
             }
         }
 
-        public override void OnActive() => OnJettisonFairing();
-
-        [KSPEvent(name = "Jettison", active = true, guiActive = true, guiName = "Jettison Fairing", groupName = PFUtils.PAWGroup)]
-        public void OnJettisonFairing()
-        {
-            decoupled |= fairingStaged;
-        }
-
-        public override void OnLoad (ConfigNode node)
-        {
-            base.OnLoad(node);
-            didForce = decoupled;
-        }
 
         public void OnSetStagingIcons ()
         {
@@ -198,7 +180,7 @@ namespace Keramzit
             }
             else
             {
-                Debug.LogError ("[PF]: Cannot find decoupler sound: " + ejectSoundUrl, this);
+                Debug.LogError ($"[PF]: Cannot find decoupler sound: {ejectSoundUrl} for {this}");
             }
 
             //  Set the state of the "Jettison Fairing" PAW button.

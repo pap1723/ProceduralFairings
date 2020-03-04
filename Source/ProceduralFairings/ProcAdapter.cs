@@ -86,45 +86,31 @@ namespace Keramzit
             float topheight = 0;
             float topnodeheight = 0;
 
-            var node = part.FindAttachNode ("bottom");
+            if (part.FindAttachNode("bottom") is AttachNode node1)
+                node1.size = Mathf.RoundToInt(baseSize / diameterStepLarge);
 
-            if (node != null)
+            if (part.FindAttachNode("top") is AttachNode node2)
             {
-                node.size = Mathf.RoundToInt(baseSize / diameterStepLarge);
+                node2.size = Mathf.RoundToInt (baseSize / diameterStepLarge);
+                topheight = node2.position.y;
             }
 
-            node = part.FindAttachNode ("top");
-
-            if (node != null)
+            if (part.FindAttachNode(topNodeName) is AttachNode node3)
             {
-                node.size = Mathf.RoundToInt (baseSize / diameterStepLarge);
-
-                topheight = node.position.y;
-            }
-
-            node = part.FindAttachNode (topNodeName);
-
-            if (node != null)
-            {
-                node.position = new Vector3 (0, height, 0);
-
-                node.size = Mathf.RoundToInt (topSize / diameterStepLarge);
+                node3.position = new Vector3 (0, height, 0);
+                node3.size = Mathf.RoundToInt (topSize / diameterStepLarge);
 
                 if (!justLoaded)
-                {
-                    PFUtils.updateAttachedPartPos (node, part);
-                }
+                    PFUtils.updateAttachedPartPos (node3, part);
 
                 topnodeheight = height;
             }
             else
             {
-                Debug.LogError ("[PF]: No '" + topNodeName + "' node in part!", this);
+                Debug.LogError($"[PF]: No '{topNodeName}' node in part {part}!");
             }
 
-            var internodes = part.FindAttachNodes ("interstage");
-
-            if (internodes != null)
+            if (part.FindAttachNodes("interstage") is AttachNode[] internodes)
             {
                 var inc = (topnodeheight - topheight) / (internodes.Length / 2 + 1);
 
@@ -134,15 +120,13 @@ namespace Keramzit
 
                     j++;
 
-                    node = internodes [i];
+                    AttachNode node = internodes [i];
 
                     node.position.y = height;
                     node.size = node.size = Mathf.RoundToInt (topSize / diameterStepLarge) - 1;
 
                     if (!justLoaded)
-                    {
                         PFUtils.updateAttachedPartPos (node, part);
-                    }
 
                     node = internodes [i + 1];
 
@@ -150,9 +134,7 @@ namespace Keramzit
                     node.size = node.size = Mathf.RoundToInt (topSize / diameterStepLarge) - 1;
 
                     if (!justLoaded)
-                    {
                         PFUtils.updateAttachedPartPos (node, part);
-                    }
                 }
             }
         }
@@ -264,22 +246,13 @@ namespace Keramzit
 
         void RemoveTopPartJoints ()
         {
-            Part topPart = getTopPart ();
-
-            Part bottomPart = getBottomPart ();
-
-            if (topPart == null ? false : (bottomPart != null))
+            if (getTopPart() is Part topPart && getBottomPart() is Part bottomPart &&
+                topPart.gameObject.GetComponents<ConfigurableJoint>() is ConfigurableJoint[] components)
             {
-                ConfigurableJoint [] components = topPart.gameObject.GetComponents<ConfigurableJoint>();
-
-                for (int i = 0; i < (int) components.Length; i++)
+                foreach (ConfigurableJoint configurableJoint in components)
                 {
-                    ConfigurableJoint configurableJoint = components [i];
-
                     if (configurableJoint.connectedBody == bottomPart.Rigidbody)
-                    {
-                        UnityEngine.Object.Destroy (configurableJoint);
-                    }
+                        Destroy (configurableJoint);
                 }
             }
         }
@@ -299,7 +272,7 @@ namespace Keramzit
 
             isFairingPresent = CheckForFairingPresent ();
 
-            isTopNodePartPresent = (getTopPart () != null);
+            isTopNodePartPresent = getTopPart() is Part;
 
             UpdateUIdecNoFairingsText (topNodeDecouplesWhenFairingsGone);
 
@@ -379,62 +352,38 @@ namespace Keramzit
             part.breakingForce = specificBreakingForce * Mathf.Pow (br, 2);
             part.breakingTorque = specificBreakingTorque * Mathf.Pow (br, 2);
 
-            var model = part.FindModelTransform ("model");
-
-            if (model != null)
-            {
+            if (part.FindModelTransform("model") is Transform model)
                 model.localScale = Vector3.one * scale;
-            }
             else
-            {
-                Debug.LogError("[PF]: No 'model' transform found in part!", this);
-            }
+                Debug.LogError($"[PF]: No 'model' transform found in part {part}!");
 
             part.rescaleFactor = scale;
 
             var node = part.FindAttachNode ("top");
-
             node.position = node.originalPosition * scale;
 
             if (!justLoaded)
-            {
                 PFUtils.updateAttachedPartPos (node, part);
-            }
 
-            var topNode = part.FindAttachNode ("top");
-            var bottomNode = part.FindAttachNode ("bottom");
+            var topNode = part.FindAttachNode("top");
+            var bottomNode = part.FindAttachNode("bottom");
 
             float y = (topNode.position.y + bottomNode.position.y) * 0.5f;
+            int sideNodeSize = Math.Max(0, Mathf.RoundToInt(scale / diameterStepLarge) - 1);
 
-            int sideNodeSize = Mathf.RoundToInt(scale / diameterStepLarge) - 1;
-
-            if (sideNodeSize < 0)
+            if (part.FindAttachNodes("connect") is AttachNode[] nodes)
             {
-                sideNodeSize = 0;
-            }
-
-            var nodes = part.FindAttachNodes ("connect");
-
-            if (nodes != null)
-            {
-                for (int i = 0; i < nodes.Length; i++)
+                foreach (AttachNode n in nodes)
                 {
-                    var n = nodes [i];
-
                     n.position.y = y;
                     n.size = sideNodeSize;
 
                     if (!justLoaded)
-                    {
                         PFUtils.updateAttachedPartPos (n, part);
-                    }
                 }
             }
 
-            var topnode2 = part.FindAttachNode (topNodeName);
-            var internodes = part.FindAttachNodes ("interstage");
-
-            if (internodes != null && topnode2 != null)
+            if (part.FindAttachNodes("interstage") is AttachNode[] internodes && part.FindAttachNode(topNodeName) is AttachNode topnode2)
             {
                 var topheight = topNode.position.y;
                 var topnode2height = topnode2.position.y;
@@ -453,9 +402,7 @@ namespace Keramzit
                     node.size = topNode.size;
 
                     if (!justLoaded)
-                    {
                         PFUtils.updateAttachedPartPos (node, part);
-                    }
 
                     node = internodes [i + 1];
 
@@ -463,22 +410,14 @@ namespace Keramzit
                     node.size = sideNodeSize;
 
                     if (!justLoaded)
-                    {
                         PFUtils.updateAttachedPartPos (node, part);
-                    }
                 }
             }
 
-            var nnt = part.GetComponent<KzNodeNumberTweaker>();
+            if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt)
+                nnt.radius = baseSize / 2;
 
-            if (nnt)
-            {
-                nnt.radius = baseSize * 0.5f;
-            }
-
-            var fbase = part.GetComponent<ProceduralFairingBase>();
-
-            if (fbase)
+            if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
             {
                 fbase.baseSize = br * 2;
                 fbase.sideThickness = sth;
@@ -525,44 +464,34 @@ namespace Keramzit
 				//  We used to remove the engine fairing (if there is any) from topmost node, but lately that's been causing NREs.  
 				//  Since KSP gives us this option nativley, let's just use KSP to do that if we want.
 
-				if (!HighLogic.LoadedSceneIsEditor)
+                if (HighLogic.LoadedSceneIsFlight)
                 {
                     if (isTopNodePartPresent)
                     {
-                        var tp = getTopPart ();
-
-                        if (tp == null)
+                        if (getTopPart() is Part tp)
                         {
-                            isTopNodePartPresent = false;
-
-                            Events[nameof(UIToggleTopNodeDecouple)].guiActive = false;
-                        }
-                        else
-                        {
-                            if (topNodeDecouplesWhenFairingsGone && !CheckForFairingPresent ())
+                            if (topNodeDecouplesWhenFairingsGone && !CheckForFairingPresent())
                             {
-                                PartModule item = part.Modules["ModuleDecouple"];
-
-                                if (item == null)
+                                if (part.FindModuleImplementing<ModuleDecouple>() is ModuleDecouple item)
                                 {
-                                    Debug.LogError ("[PF]: Cannot decouple from top part!", this);
+                                    RemoveTopPartJoints();
+                                    item.Decouple();
+                                    part.stackIcon.RemoveIcon();
+                                    StageManager.Instance.SortIcons(true);
+                                    isFairingPresent = false;
+                                    isTopNodePartPresent = false;
+                                    Events[nameof(UIToggleTopNodeDecouple)].guiActive = false;
                                 }
                                 else
                                 {
-                                    RemoveTopPartJoints ();
-
-                                    ((ModuleDecouple)item).Decouple ();
-
-                                    part.stackIcon.RemoveIcon ();
-
-                                    StageManager.Instance.SortIcons (true);
-
-                                    isFairingPresent = false;
-                                    isTopNodePartPresent = false;
-
-                                    Events[nameof(UIToggleTopNodeDecouple)].guiActive = false;
+                                    Debug.LogError($"[PF]: Cannot decouple from top part! {this}");
                                 }
                             }
+                        }
+                        else
+                        {
+                            isTopNodePartPresent = false;
+                            Events[nameof(UIToggleTopNodeDecouple)].guiActive = false;
                         }
                     }
 
@@ -570,61 +499,31 @@ namespace Keramzit
                     {
                         isStaged = false;
 
-                        if (part != null)
+                        if (part is Part && stageNum == part.inverseStage)
                         {
-                            if (stageNum == part.inverseStage)
-                            {
-                                part.stackIcon.RemoveIcon ();
-
-                                StageManager.Instance.SortIcons (true);
-
-                                Events[nameof(UIToggleTopNodeDecouple)].guiActive = false;
-                            }
+                            part.stackIcon.RemoveIcon ();
+                            StageManager.Instance.SortIcons (true);
+                            Events[nameof(UIToggleTopNodeDecouple)].guiActive = false;
                         }
                     }
                 }
             }
         }
 
-        public Part getBottomPart ()
-        {
-            AttachNode attachNode = part.FindAttachNode ("bottom");
-
-            return (attachNode == null) ? null : attachNode.attachedPart;
-        }
+        public Part getBottomPart() => (part.FindAttachNode("bottom") is AttachNode node) ? node.attachedPart : null;
+        public Part getTopPart() => (part.FindAttachNode(topNodeName) is AttachNode node) ? node.attachedPart : null;
 
         public bool CheckForFairingPresent()
         {
-            if (!isFairingPresent)
+            if (isFairingPresent && part.FindAttachNodes("connect") is AttachNode[] nodes)
             {
-                return false;
-            }
-
-            var nodes = part.FindAttachNodes ("connect");
-
-            if (nodes == null)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < nodes.Length; i++)
-            {
-                var n = nodes [i];
-
-                if (n.attachedPart != null)
+                foreach (AttachNode n in nodes)
                 {
-                    return true;
+                    if (n.attachedPart is Part)
+                        return true;
                 }
             }
-
             return false;
-        }
-
-        public Part getTopPart ()
-        {
-            var node = part.FindAttachNode (topNodeName);
-
-            return (node == null) ? null : node.attachedPart;
         }
 
         public override void OnLoad (ConfigNode cfg)

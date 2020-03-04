@@ -29,46 +29,34 @@ namespace Keramzit
 
         void AddMoreJoints ()
         {
-            int i;
-
-            AttachNode attachNode;
-
             if (!morejointsadded)
             {
                 AttachNode attachNode1 = base.part.FindAttachNode ("bottom");
 
-                AttachNode[] attachNodeArray = base.part.FindAttachNodes("interstage");
-                AttachNode[] attachNodeArray1 = base.part.FindAttachNodes("top");
-
                 Debug.Log($"[PF]: Adding Joints to Vessel: {vessel.vesselName}, (Launch ID: {base.part.launchID}) (GUID: {base.vessel.id})");
                 Debug.Log($"[PF]: For PF Part: {base.part.name} ({base.part.craftID})");
 
-                Part part = null;
-
-                if ((attachNode1 == null ? false : attachNode1.attachedPart != null))
+                Part targetPart = null;
+                if (attachNode1 is AttachNode && attachNode1.attachedPart is Part)
                 {
-                    part = attachNode1.attachedPart;
+                    targetPart = attachNode1.attachedPart;
 
-                    bottomNodePart = part;
+                    bottomNodePart = targetPart;
 
-                    addStrut (part, base.part, Vector3.zero);
-                    Debug.Log($"[PF]: Bottom Part: {part.name} ({part.craftID})");
+                    addStrut (targetPart, base.part, Vector3.zero);
+                    Debug.Log($"[PF]: Bottom Part: {targetPart.name} ({targetPart.craftID})");
                 }
 
                 Debug.Log("[PF]: Top Parts:");
 
-                if (attachNodeArray1 != null)
+                if (base.part.FindAttachNodes("top") is AttachNode[] topNodes)
                 {
-                    for (i = 0; i < (int)attachNodeArray1.Length; i++)
+                    foreach (AttachNode attachNode in topNodes)
                     {
-                        attachNode = attachNodeArray1 [i];
-
-                        if (attachNode.attachedPart != null)
+                        if (attachNode.attachedPart is Part)
                         {
-                            if (part != null)
-                            {
-                                AddPartJoint (attachNode.attachedPart, part, attachNode.FindOpposingNode (), attachNode1.FindOpposingNode ());
-                            }
+                            if (targetPart is Part)
+                                AddPartJoint (attachNode.attachedPart, targetPart, attachNode.FindOpposingNode(), attachNode1.FindOpposingNode());
 
                             addStrut (attachNode.attachedPart, base.part, Vector3.zero);
 
@@ -78,23 +66,19 @@ namespace Keramzit
                     }
                 }
 
-                if (attachNodeArray != null)
+                if (base.part.FindAttachNodes("interstage") is AttachNode[] interNodes)
                 {
-                    for (i = 0; i < (int)attachNodeArray.Length; i++)
+                    foreach (AttachNode an in interNodes)
                     {
-                        attachNode = attachNodeArray [i];
-
-                        if (attachNode.attachedPart != null)
+                        if (an.attachedPart is Part)
                         {
-                            if (part != null)
-                            {
-                                AddPartJoint (attachNode.attachedPart, part, attachNode.FindOpposingNode (), attachNode1.FindOpposingNode ());
-                            }
+                            if (targetPart is Part)
+                                AddPartJoint (an.attachedPart, targetPart, an.FindOpposingNode (), attachNode1.FindOpposingNode ());
 
-                            addStrut (attachNode.attachedPart, base.part, Vector3.zero);
+                            addStrut (an.attachedPart, base.part, Vector3.zero);
 
-                            nodeParts.Add (attachNode.attachedPart);
-                            Debug.Log($"[PF]: {attachNode.attachedPart.name} ({attachNode.attachedPart.craftID})");
+                            nodeParts.Add (an.attachedPart);
+                            Debug.Log($"[PF]: {an.attachedPart.name} ({an.attachedPart.craftID})");
                         }
                     }
                 }
@@ -105,49 +89,34 @@ namespace Keramzit
 
         void AddPartJoint (Part p, Part pp, AttachNode pnode, AttachNode ppnode)
         {
-            PartJoint partJoint = PartJoint.Create (p, pp, pnode, ppnode, 0);
+            PartJoint partJoint = PartJoint.Create(p, pp, pnode, ppnode, 0);
+            partJoint.SetBreakingForces(breakingForce, breakingForce);
 
-            partJoint.SetBreakingForces (breakingForce, breakingForce);
-
+            // This seems unlikely to be working as intended.
             PartJoint partJoint1 = p.gameObject.AddComponent<PartJoint>();
-
             partJoint1 = partJoint;
         }
 
         ConfigurableJoint addStrut (Part p, Part pp, Vector3 pos)
         {
-            ConfigurableJoint configurableJoint;
+            ConfigurableJoint configurableJoint = null;
 
-            if (p != pp)
+            if (p != pp && pp.Rigidbody is Rigidbody rigidbody && rigidbody != p.Rigidbody)
             {
-                Rigidbody rigidbody = pp.Rigidbody;
+                configurableJoint = p.gameObject.AddComponent<ConfigurableJoint>();
 
-                if ((rigidbody == null ? false : !(rigidbody == p.Rigidbody)))
-                {
-                    ConfigurableJoint configurableJoint1 = p.gameObject.AddComponent<ConfigurableJoint>();
-
-                    configurableJoint1.xMotion = 0;
-                    configurableJoint1.yMotion = 0;
-                    configurableJoint1.zMotion = 0;
-                    configurableJoint1.angularXMotion = 0;
-                    configurableJoint1.angularYMotion = 0;
-                    configurableJoint1.angularZMotion = 0;
-                    configurableJoint1.projectionDistance = 0.1f;
-                    configurableJoint1.projectionAngle = 5f;
-                    configurableJoint1.breakForce = breakingForce;
-                    configurableJoint1.breakTorque = breakingForce;
-                    configurableJoint1.connectedBody = rigidbody;
-                    configurableJoint1.targetPosition = pos;
-                    configurableJoint = configurableJoint1;
-                }
-                else
-                {
-                    configurableJoint = null;
-                }
-            }
-            else
-            {
-                configurableJoint = null;
+                configurableJoint.xMotion = 0;
+                configurableJoint.yMotion = 0;
+                configurableJoint.zMotion = 0;
+                configurableJoint.angularXMotion = 0;
+                configurableJoint.angularYMotion = 0;
+                configurableJoint.angularZMotion = 0;
+                configurableJoint.projectionDistance = 0.1f;
+                configurableJoint.projectionAngle = 5f;
+                configurableJoint.breakForce = breakingForce;
+                configurableJoint.breakTorque = breakingForce;
+                configurableJoint.connectedBody = rigidbody;
+                configurableJoint.targetPosition = pos;
             }
 
             return configurableJoint;
@@ -155,11 +124,8 @@ namespace Keramzit
 
         void ClearJointLines ()
         {
-            for (int i = 0; i < jointLines.Count; i++)
-            {
-                UnityEngine.Object.Destroy (jointLines [i].gameObject);
-            }
-
+            foreach (LineRenderer r in jointLines)
+                Destroy(r.gameObject);
             jointLines.Clear ();
         }
 
@@ -167,7 +133,7 @@ namespace Keramzit
         {
             if (!morejointsadded)
             {
-                if ((!FlightGlobals.ready || vessel.packed ? false : vessel.loaded))
+                if (!FlightGlobals.ready || vessel.packed ? false : vessel.loaded)
                 {
                     AddMoreJoints ();
                 }
@@ -191,44 +157,25 @@ namespace Keramzit
         public void ListJoints ()
         {
             int j;
-
-            string [] _name;
-
-            float _breakForce;
-
-            Vector3 _anchor;
-
-            string str;
-            string str1;
-
             ClearJointLines ();
 
-            List<Part> activeVessel = FlightGlobals.ActiveVessel.parts;
-
-            for (int i = 0; i < activeVessel.Count; i++)
+            foreach (Part thePart in FlightGlobals.ActiveVessel.parts)
             {
-                ConfigurableJoint [] components = activeVessel[i].gameObject.GetComponents<ConfigurableJoint>();
-
-                if (components != null)
+                if (thePart.GetComponents<ConfigurableJoint>() is ConfigurableJoint[] components)
                 {
-                    for (j = 0; j < (int)components.Length; j++)
+                    foreach (ConfigurableJoint cj in components)
                     {
-                        ConfigurableJoint cj = components [j];
-                        string s = $"[PF]: <ConfigurableJoint>, {activeVessel[i].name}, {(cj.connectedBody == null ? "<none>" : cj.connectedBody.name)}";
-                        string pos = (cj.connectedBody == null) ? "--" : $"{activeVessel[i].transform.position - cj.connectedBody.position}";
+                        string s = $"[PF]: <ConfigurableJoint>, {thePart.name}, {(cj.connectedBody == null ? "<none>" : cj.connectedBody.name)}";
+                        string pos = (cj.connectedBody == null) ? "--" : $"{thePart.transform.position - cj.connectedBody.position}";
                         s += $", {cj.breakForce}, {cj.breakTorque}, {cj.anchor}, {cj.connectedAnchor}, {pos}, {cj.linearLimitSpring.damper:F2}, {cj.linearLimitSpring.spring:F2}";
                         Debug.Log(s);
                     }
                 }
 
-                PartJoint [] partJointArray = activeVessel[i].gameObject.GetComponents<PartJoint>();
-
-                if (partJointArray != null)
+                if (thePart.GetComponents<PartJoint>() is PartJoint[] pjArr)
                 {
-                    for (j = 0; j < (int)partJointArray.Length; j++)
+                    foreach (PartJoint partJoint in pjArr)
                     {
-                        PartJoint partJoint = partJointArray [j];
-
                         if (partJoint.Host || partJoint.Target)
                         {
                             string target = partJoint.Target == null ? "<none>" : partJoint.Target.name;
@@ -242,30 +189,20 @@ namespace Keramzit
 
                         if (partJoint.Target)
                         {
-                            AttachNode attachNode = activeVessel [i].FindAttachNodeByPart (partJoint.Target);
-
-                            if (attachNode != null)
+                            if (thePart.FindAttachNodeByPart(partJoint.Target) is AttachNode attachNode)
                             {
                                 Debug.Log($"[PF]: <AttachNode>, {partJoint.Host.name}, {partJoint.Target.name}, {attachNode.breakingForce}, {attachNode.breakingTorque}, {attachNode.contactArea:F2}, {attachNode.attachMethod}, {attachNode.rigid}, {attachNode.radius:F2}");
-
-                                AttachNode attachNode1 = attachNode.FindOpposingNode ();
-
-                                if (attachNode1 != null && attachNode1.owner)
-                                {
+                                if (attachNode.FindOpposingNode() is AttachNode attachNode1 && attachNode1.owner)
                                     Debug.Log($"[PF]: <Opposing AttachNode>, {attachNode1.owner.name}, {(attachNode1.attachedPart != null ? attachNode1.attachedPart.name : "<none>")}, {attachNode1.breakingForce}, {attachNode1.breakingTorque}, {attachNode1.contactArea:F2}, {attachNode1.attachMethod}, {attachNode1.rigid}, {attachNode1.radius:F2}");
-                                }
                             }
                         }
                     }
                 }
 
-                FixedJoint [] fixedJointArray = activeVessel [i].gameObject.GetComponents<FixedJoint>();
-
-                if (fixedJointArray != null)
+                if (thePart.GetComponents<FixedJoint>() is FixedJoint[] fja)
                 {
-                    for (j = 0; j < (int)fixedJointArray.Length; j++)
+                    foreach (FixedJoint fj in fja)
                     {
-                        FixedJoint fj = fixedJointArray [j];
                         Debug.Log($"[PF]: <FixedJoint>, {fj.name}, {(fj.connectedBody == null ? "<none>" : fj.connectedBody.name)}, {fj.breakForce}, {fj.breakTorque}, {fj.anchor}, {fj.connectedAnchor}");
                     }
                 }
@@ -307,10 +244,9 @@ namespace Keramzit
 
         void OnGameSceneLoadRequested (GameScenes scene)
         {
-            if ((scene == GameScenes.FLIGHT ? false : viewJoints))
+            if (scene != GameScenes.FLIGHT && viewJoints)
             {
                 viewJoints = false;
-
                 ClearJointLines ();
             }
         }
@@ -318,7 +254,6 @@ namespace Keramzit
         void OnPartJointBreak (PartJoint pj, float value)
         {
             Part host;
-            int i;
             bool flag;
 
             if (pj.Host != part)
@@ -340,9 +275,9 @@ namespace Keramzit
                     }
                     else if (host == bottomNodePart)
                     {
-                        for (i = 0; i < nodeParts.Count; i++)
+                        foreach (Part p1 in nodeParts)
                         {
-                            RemoveJoints (nodeParts [i], bottomNodePart);
+                            RemoveJoints (p1, bottomNodePart);
                         }
 
                         RemoveJoints (bottomNodePart, part);
@@ -359,9 +294,7 @@ namespace Keramzit
             if (nodeParts.Contains(host))
             {
                 if (bottomNodePart != null)
-                {
                     RemoveJoints (host, bottomNodePart);
-                }
 
                 RemoveJoints (host, part);
 
@@ -369,11 +302,10 @@ namespace Keramzit
             }
             else if (host == bottomNodePart)
             {
-                for (i = 0; i < nodeParts.Count; i++)
+                foreach (Part p in nodeParts)
                 {
-                    RemoveJoints (nodeParts [i], bottomNodePart);
+                    RemoveJoints (p, bottomNodePart);
                 }
-
                 RemoveJoints (bottomNodePart, part);
             }
         }
@@ -391,34 +323,25 @@ namespace Keramzit
         void OnVesselModified (Vessel v)
         {
             if (v == vessel && viewJoints)
-            {
                 ViewJoints();
-            }
         }
 
         void RemoveJoints (Part p, Part pp)
         {
             if ((p == null || p.Rigidbody == null || pp == null ? false : !(pp.Rigidbody == null)))
             {
-                ConfigurableJoint [] components = p.gameObject.GetComponents<ConfigurableJoint>();
-
-                for (int i = 0; i < (int)components.Length; i++)
+                foreach (ConfigurableJoint configurableJoint in p.GetComponents<ConfigurableJoint>())
                 {
-                    ConfigurableJoint configurableJoint = components [i];
-
                     if (configurableJoint.connectedBody == pp.Rigidbody)
                     {
                         try
                         {
-                            UnityEngine.Object.Destroy (configurableJoint);
+                            Destroy(configurableJoint);
                         }
-                        catch (Exception exception1)
+                        catch (Exception e)
                         {
-                            Exception exception = exception1;
-
-                            string [] str = { "[PF]: RemoveJoint Anomaly (", p.ToString(), ", ", pp.ToString(), "): ", exception.Message };
-
-                            Debug.Log (string.Concat (str));
+                            Debug.LogException(e);
+                            Debug.LogError($"[PF]: RemoveJoint Anomaly ({p}, {pp}): {e.Message}");
                         }
                     }
                 }
@@ -430,7 +353,6 @@ namespace Keramzit
             if (viewJoints)
             {
                 ListJoints ();
-
                 ViewJoints ();
             }
             else
@@ -443,26 +365,20 @@ namespace Keramzit
         {
             ClearJointLines ();
 
-            List<Part> activeVessel = FlightGlobals.ActiveVessel.parts;
-
-            for (int i = 0; i < activeVessel.Count; i++)
+            foreach (Part p in FlightGlobals.ActiveVessel.parts)
             {
-                ConfigurableJoint [] components = activeVessel [i].gameObject.GetComponents<ConfigurableJoint>();
-
-                if (components != null)
+                if (p.GetComponents<ConfigurableJoint>() is ConfigurableJoint[] components)
                 {
-                    for (int j = 0; j < (int)components.Length; j++)
+                    foreach (ConfigurableJoint configurableJoint in components)
                     {
-                        ConfigurableJoint configurableJoint = components [j];
-
                         if (configurableJoint.connectedBody != null)
                         {
                             var vector3 = new Vector3 (0f, 5f, 0f);
                             var vector31 = new Vector3 (0.25f, 0f, 0f);
 
-                            Vector3 _position = activeVessel [i].transform.position + vector3;
+                            Vector3 _position = p.transform.position + vector3;
                             Vector3 _position1 = configurableJoint.connectedBody.position + vector3;
-                            Vector3 _position2 = (activeVessel [i].transform.position + (activeVessel [i].transform.rotation * configurableJoint.anchor)) + vector3;
+                            Vector3 _position2 = (p.transform.position + (p.transform.rotation * configurableJoint.anchor)) + vector3;
 
                             Vector3 vector32 = (configurableJoint.connectedBody.position + (configurableJoint.connectedBody.rotation * configurableJoint.connectedAnchor)) + vector3;
 

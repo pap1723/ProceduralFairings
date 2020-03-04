@@ -135,12 +135,8 @@ namespace Keramzit
 
         public void setNodeSize (AttachNode node, float scale)
         {
-            if (node == null)
-            {
-                return;
-            }
-
-            node.size = Mathf.RoundToInt (scale / diameterStepLarge);
+            if (node is AttachNode)
+                node.size = Mathf.RoundToInt(scale / diameterStepLarge);
         }
 
         public virtual void updateNodeSize (float scale)
@@ -148,15 +144,11 @@ namespace Keramzit
             setNodeSize (part.FindAttachNode ("top"), scale);
             setNodeSize (part.FindAttachNode ("bottom"), scale);
 
-            var nodes = part.FindAttachNodes ("interstage");
-
-            if (nodes != null)
-            {
-                for (int i = 0; i < nodes.Length; i++)
+            if (part.FindAttachNodes("interstage") is AttachNode[] nodes)
+                foreach (AttachNode node in nodes)
                 {
-                    setNodeSize (nodes [i], scale);
+                    setNodeSize(node, scale);
                 }
-            }
         }
 
         public virtual void resizePart (float scale)
@@ -171,31 +163,20 @@ namespace Keramzit
             part.breakingForce = specificBreakingForce * Mathf.Pow (scale, 2);
             part.breakingTorque = specificBreakingTorque * Mathf.Pow (scale, 2);
 
-            var model = part.FindModelTransform ("model");
-
-            if (model != null)
-            {
+            if (part.FindModelTransform("model") is Transform model)
                 model.localScale = Vector3.one * scale;
-            }
             else
-            {
                 Debug.LogError ("[PF]: No 'model' transform found in part!", this);
-            }
 
             part.rescaleFactor = scale;
 
             scaleNode(part.FindAttachNode ("top"), scale, true);
             scaleNode(part.FindAttachNode ("bottom"), scale, true);
-
-            var nodes = part.FindAttachNodes ("interstage");
-
-            if (nodes != null)
-            {
-                for (int i = 0; i < nodes.Length; i++)
+            if (part.FindAttachNodes("interstage") is AttachNode[] nodes)
+                foreach (AttachNode node in nodes)
                 {
-                    scaleNode (nodes [i], scale, true);
+                    scaleNode(node, scale, true);
                 }
-            }
         }
     }
 
@@ -214,21 +195,12 @@ namespace Keramzit
 
             base.updateNodeSize (scale);
 
-            int sideNodeSize = Mathf.RoundToInt (scale / diameterStepLarge) - 1;
-
-            if (sideNodeSize < 0)
-            {
-                sideNodeSize = 0;
-            }
-
-            var nodes = part.FindAttachNodes ("connect");
-
-            for (int i = 0; i < nodes.Length; i++)
-            {
-                var n = nodes [i];
-
-                n.size = sideNodeSize;
-            }
+            int sideNodeSize = Math.Max(0, Mathf.RoundToInt (scale / diameterStepLarge) - 1);
+            if (part.FindAttachNodes("connect") is AttachNode[] nodes)
+                foreach (AttachNode node in nodes)
+                {
+                    node.size = sideNodeSize;
+                }
         }
 
         public override void resizePart (float scale)
@@ -243,40 +215,23 @@ namespace Keramzit
             var topNode = part.FindAttachNode ("top");
             var bottomNode = part.FindAttachNode ("bottom");
 
-            float y = (topNode.position.y + bottomNode.position.y) * 0.5f;
+            float y = (topNode.position.y + bottomNode.position.y) / 2f;
 
-            int sideNodeSize = Mathf.RoundToInt(scale / diameterStepLarge) - 1;
-
-            if (sideNodeSize < 0)
-            {
-                sideNodeSize = 0;
-            }
-
-            var nodes = part.FindAttachNodes ("connect");
-
-            for (int i = 0; i < nodes.Length; i++)
-            {
-                var n = nodes [i];
-
-                n.position.y = y;
-                n.size = sideNodeSize;
-
-                if (!justLoaded)
+            int sideNodeSize = Math.Max(0, Mathf.RoundToInt(scale / diameterStepLarge) - 1);
+            if (part.FindAttachNodes("connect") is AttachNode[] nodes)
+                foreach (AttachNode node in nodes)
                 {
-                    PFUtils.updateAttachedPartPos (n, part);
+                    node.position.y = y;
+                    node.size = sideNodeSize;
+
+                    if (!justLoaded)
+                        PFUtils.updateAttachedPartPos(node, part);
                 }
-            }
 
-            var nnt = part.GetComponent<KzNodeNumberTweaker>();
-
-            if (nnt)
-            {
+            if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt)
                 nnt.radius = size * 0.5f;
-            }
 
-            var fbase = part.GetComponent<ProceduralFairingBase>();
-
-            if (fbase)
+            if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
             {
                 fbase.baseSize = br * 2;
                 fbase.sideThickness = sth;
@@ -291,34 +246,21 @@ namespace Keramzit
         {
             base.resizePart (scale);
 
-            var node = part.FindAttachNode ("bottom");
-
-            var nodes = part.FindAttachNodes ("bottom");
-
-            for (int i = 0; i < nodes.Length; i++)
+            if (part.FindAttachNode("bottom") is AttachNode node &&
+                part.FindAttachNodes("bottom") is AttachNode[] nodes)
             {
-                var n = nodes [i];
-
-                n.position.y = node.position.y;
-
-                if (!justLoaded)
+                foreach (AttachNode n in nodes)
                 {
-                    PFUtils.updateAttachedPartPos (n, part);
+                    n.position.y = node.position.y;
+                    if (!justLoaded)
+                        PFUtils.updateAttachedPartPos(n, part);
                 }
             }
 
-            var nnt = part.GetComponent<KzNodeNumberTweaker>();
-
-            if (nnt)
+            if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt)
             {
-                float mr = size * 0.5f;
-
-                if (nnt.radius > mr)
-                {
-                    nnt.radius = mr;
-                }
-
-                ((UI_FloatEdit) nnt.Fields["radius"].uiControlEditor).maxValue = mr;
+                nnt.radius = Math.Min(nnt.radius, size / 2);
+                (nnt.Fields[nameof(nnt.radius)].uiControlEditor as UI_FloatEdit).maxValue = size / 2;
             }
         }
     }

@@ -95,9 +95,7 @@ namespace Keramzit
 
                         if (removed)
                         {
-                            var fbase = part.GetComponent<ProceduralFairingBase>();
-
-                            if (fbase)
+                            if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
                             {
                                 fbase.needShapeUpdate = true;
                                 fbase.updateDelay = 0.5f;
@@ -171,154 +169,103 @@ namespace Keramzit
         {
             for (int i = 1; i <= maxNumber; ++i)
             {
-                var node = findNode (i);
-
-                if (node != null && node.attachedPart != null)
+                if (findNode(i) is AttachNode node && node.attachedPart is Part)
                 {
                     EditorScreenMessager.showMessage ("Please detach any fairing parts before changing the number of nodes!", 1);
-
                     return true;
                 }
             }
-
             return false;
         }
 
         void addRemoveNodes ()
         {
             part.stackSymmetry = numNodes - 1;
-
             float y = 0;
-
             bool gotY = false;
-
             int nodeSize = 0;
-
             Vector3 dir = Vector3.up;
-
             int i;
 
-            for (i = 1; i <= maxNumber; ++i)
+            for (i = 1; i <= maxNumber && !gotY; ++i)
             {
-                var node = findNode (i);
-
-                if (node == null)
+                if (findNode(i) is AttachNode node)
                 {
-                    continue;
+                    y = node.position.y;
+                    nodeSize = node.size;
+                    dir = node.orientation;
+
+                    gotY = true;
                 }
-
-                y = node.position.y;
-                nodeSize = node.size;
-                dir = node.orientation;
-
-                gotY = true;
-
-                break;
             }
 
             if (!gotY)
             {
-                var node = part.FindAttachNode ("bottom");
-
-                if (node != null)
-                {
+                if (part.FindAttachNode("bottom") is AttachNode node)
                     y = node.position.y;
-                }
             }
 
             for (i = 1; i <= numNodes; ++i)
             {
-                var node = findNode (i);
-
-                if (node != null)
+                if (findNode(i) == null)
                 {
-                    continue;
+                    //  Create the fairing attachment node.
+                    AttachNode node = new AttachNode();
+
+                    node.id = nodeName(i);
+                    node.owner = part;
+                    node.nodeType = AttachNode.NodeType.Stack;
+                    node.position = new Vector3(0, y, 0);
+                    node.orientation = dir;
+                    node.originalPosition = node.position;
+                    node.originalOrientation = node.orientation;
+                    node.size = nodeSize;
+
+                    part.attachNodes.Add(node);
                 }
-
-                //  Create the fairing attachment node.
-
-                node = new AttachNode ();
-
-                node.id = nodeName (i);
-                node.owner = part;
-                node.nodeType = AttachNode.NodeType.Stack;
-                node.position = new Vector3 (0, y, 0);
-                node.orientation = dir;
-                node.originalPosition = node.position;
-                node.originalOrientation = node.orientation;
-                node.size = nodeSize;
-
-                part.attachNodes.Add (node);
             }
 
             for (; i <= maxNumber; ++i)
             {
-                var node = findNode (i);
-
-                if (node == null)
+                if (findNode(i) is AttachNode node2)
                 {
-                    continue;
-                }
-
-                if (HighLogic.LoadedSceneIsEditor)
-                {
-                    node.position.x = 10000;
-                }
-                else
-                {
-                    part.attachNodes.Remove (node);
+                    if (HighLogic.LoadedSceneIsEditor)
+                        node2.position.x = 10000;
+                    else
+                        part.attachNodes.Remove(node2);
                 }
             }
 
-            var fbase = part.GetComponent<ProceduralFairingBase>();
-
-            if (fbase)
-            {
+            if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
                 fbase.needShapeUpdate = true;
-            }
         }
 
         void updateNodePositions ()
         {
             float d = Mathf.Sin (Mathf.PI / numNodes) * radius * 2;
-
             int size = Mathf.RoundToInt (d / (radiusStepLarge * 2));
 
             for (int i = 1; i <= numNodes; ++i)
             {
-                var node = findNode (i);
-
-                if (node == null)
+                if (findNode(i) is AttachNode node)
                 {
-                    continue;
-                }
+                    float a = Mathf.PI * 2 * (i - 1) / numNodes;
 
-                float a = Mathf.PI * 2 * (i - 1) / numNodes;
+                    node.position.x = Mathf.Cos(a) * radius;
+                    node.position.z = Mathf.Sin(a) * radius;
 
-                node.position.x = Mathf.Cos (a) * radius;
-                node.position.z = Mathf.Sin (a) * radius;
+                    if (shouldResizeNodes)
+                        node.size = size;
 
-                if (shouldResizeNodes)
-                {
-                    node.size = size;
-                }
-
-                if (!justLoaded)
-                {
-                    PFUtils.updateAttachedPartPos (node, part);
+                    if (!justLoaded)
+                        PFUtils.updateAttachedPartPos(node, part);
                 }
             }
 
             for (int i = numNodes + 1; i <= maxNumber; ++i)
             {
-                var node = findNode (i);
-
-                if (node == null)
-                {
-                    continue;
-                }
-
-                node.position.x = 10000;
+                if (findNode(i) is AttachNode node)
+                    node.position.x = 10000;
             }
         }
     }
