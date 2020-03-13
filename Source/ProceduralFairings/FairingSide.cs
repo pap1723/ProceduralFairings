@@ -5,7 +5,6 @@
 //  ==================================================
 
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace Keramzit
@@ -126,20 +125,17 @@ namespace Keramzit
 
         public void Start ()
         {
-            part.mass = totalMass;
+            if (part.mass != totalMass)
+            {
+                Debug.LogError($"[PF] FairingSide Start(): Expected part mass {totalMass} but discovered {part.mass}!");
+                part.mass = totalMass;
+            }
         }
 
         public override void OnStart (StartState state)
         {
-            if (state == StartState.None)
-            {
-                return;
-            }
-
-            if (state != StartState.Editor || shapeLock)
-            {
-                rebuildMesh ();
-            }
+            if (!HighLogic.LoadedSceneIsEditor && !shapeLock) 
+                rebuildMesh();
 
             //  Set the initial fairing side curve values from the part config.
 
@@ -168,28 +164,11 @@ namespace Keramzit
             defaultNoseConeSegments = noseConeSegments;
             defaultNoseHeightRatio  = noseHeightRatio;
 
-            //  Set the initial fairing side mass value.
-
-            part.mass = totalMass;
-
-            //  Set up the GUI update callbacks.
-
-            OnUpdateFairingSideUI ();
-
-            OnToggleFairingShapeUI ();
+            OnUpdateFairingSideUI();
+            OnToggleFairingShapeUI();
         }
 
-        public override void OnLoad (ConfigNode cfg)
-        {
-            base.OnLoad (cfg);
-
-            if (HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
-            {
-                rebuildMesh ();
-            }
-        }
-
-        void OnUpdateFairingSideUI ()
+        void OnUpdateFairingSideUI()
         {
             (Fields[nameof(baseAutoShape)].uiControlEditor as UI_Toggle).onFieldChanged += OnChangeShapeUI;
             (Fields[nameof(noseAutoShape)].uiControlEditor as UI_Toggle).onFieldChanged += OnChangeShapeUI;
@@ -210,10 +189,9 @@ namespace Keramzit
             (Fields[nameof(density)].uiControlEditor as UI_FloatRange).onFieldChanged += OnChangeShapeUI;
         }
 
-        void OnChangeShapeUI (BaseField bf, object obj)
+        void OnChangeShapeUI(BaseField bf, object obj)
         {
             //  Set the default values of the fairing side base parameters if the auto-shape is enabled.
-
             if (baseAutoShape)
             {
                 baseCurveStartX  = defaultBaseCurveStartX;
@@ -224,7 +202,6 @@ namespace Keramzit
             }
 
             //  Set the default values of the fairing side nose parameters if the auto-shape is enabled.
-
             if (noseAutoShape)
             {
                 noseCurveStartX  = defaultNoseCurveStartX;
@@ -235,14 +212,9 @@ namespace Keramzit
                 noseHeightRatio  = defaultNoseHeightRatio;
             }
 
-            //  Set the state of the advanced fairing side base and nose options.
-
-            OnToggleFairingShapeUI ();
-
-            //  Update the fairing shape.
-
+            OnToggleFairingShapeUI();
             if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
-                fbase.needShapeUpdate = true;
+                fbase.recalcShape();
         }
 
         void OnToggleFairingShapeUI ()
@@ -269,16 +241,13 @@ namespace Keramzit
             }
         }
 
-        public void FixedUpdate ()
+        public void UpdateMassAndCostDisplay()
         {
-            if (HighLogic.LoadedSceneIsEditor)
-            {
-                int nsym = part.symmetryCounterparts.Count;
-                string s = (nsym == 0) ? string.Empty : (nsym == 1) ? " (both)" : $"(all {nsym + 1})";
-                float perPartCost = part.partInfo.cost + GetModuleCost(part.partInfo.cost, ModifierStagingSituation.CURRENT);
-                massDisplay = PFUtils.formatMass(totalMass * (nsym + 1)) + s;
-                costDisplay = PFUtils.formatCost(perPartCost * (nsym + 1)) + s;
-            }
+            int nsym = part.symmetryCounterparts.Count;
+            string s = (nsym == 0) ? string.Empty : (nsym == 1) ? " (both)" : $"(all {nsym + 1})";
+            float perPartCost = part.partInfo.cost + GetModuleCost(part.partInfo.cost, ModifierStagingSituation.CURRENT);
+            massDisplay = PFUtils.formatMass(totalMass * (nsym + 1)) + s;
+            costDisplay = PFUtils.formatCost(perPartCost * (nsym + 1)) + s;
         }
 
         public void rebuildMesh ()
@@ -401,6 +370,7 @@ namespace Keramzit
             part.mass = totalMass = volume * density;
             part.breakingForce = part.mass * specificBreakingForce;
             part.breakingTorque = part.mass * specificBreakingTorque;
+            UpdateMassAndCostDisplay();
 
             var offset = new Vector3 (maxRad * 0.7f, topY * 0.5f, 0);
 
