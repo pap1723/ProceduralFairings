@@ -24,8 +24,6 @@ namespace Keramzit
         [KSPField(guiActive = true, guiActiveEditor = true, guiName = "Parts shielded", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
         public int numShieldedDisplay;
 
-        bool needReset;
-
         public bool ClosedAndLocked() => true;
         public Vessel GetVessel() => vessel;
         public Part GetPart() => part;
@@ -48,21 +46,11 @@ namespace Keramzit
             GameEvents.onPartDie.Remove(OnPartDestroyed);
         }
 
-        public void FixedUpdate ()
+        public void reset()
         {
-            if (needReset)
-            {
-                needReset = false;
-
-                getFairingParams ();
-                if (HighLogic.LoadedSceneIsEditor || (HighLogic.LoadedSceneIsFlight && !vessel.packed))
-                    enableShielding ();
-            }
-        }
-
-        public void reset ()
-        {
-            needReset = true;
+            getFairingParams();
+            if (HighLogic.LoadedSceneIsEditor || (HighLogic.LoadedSceneIsFlight && !vessel.packed))
+                enableShielding();
         }
 
         private bool AllFairingSidesAttached()
