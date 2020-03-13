@@ -35,18 +35,12 @@ namespace Keramzit
         public string costDisplay;
 
         protected float oldSize = -1000;
-        protected bool justLoaded;
         public float totalMass;
 
         public ModifierChangeWhen GetModuleCostChangeWhen() => ModifierChangeWhen.FIXED;
         public ModifierChangeWhen GetModuleMassChangeWhen() => ModifierChangeWhen.FIXED;
         public float GetModuleCost(float defcost, ModifierStagingSituation sit) => (totalMass * costPerTonne) - defcost;
         public float GetModuleMass(float defmass, ModifierStagingSituation sit) => totalMass - defmass;
-
-        public void Start ()
-        {
-            part.mass = totalMass;
-        }
 
         public override void OnStart (StartState state)
         {
@@ -55,20 +49,8 @@ namespace Keramzit
             if (HighLogic.LoadedSceneIsEditor)
                 ConfigureTechLimits();
 
-            updateNodeSize (size);
-            part.mass = totalMass;
-        }
-
-        public override void OnLoad (ConfigNode cfg)
-        {
-            base.OnLoad (cfg);
-
-            justLoaded = true;
-
-            if (HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
-            {
-                updateNodeSize (size);
-            }
+            updateNodeSize(size);
+            resizePart(size, false);
         }
 
         public void ConfigureTechLimits()
@@ -89,47 +71,39 @@ namespace Keramzit
             }
         }
 
-        public virtual void FixedUpdate ()
+        public override void OnUpdate()
         {
-            if (!size.Equals (oldSize))
+            base.OnUpdate();
+            if (HighLogic.LoadedSceneIsEditor && size != oldSize)
             {
-                resizePart (size);
-
-                StartCoroutine (PFUtils.updateDragCubeCoroutine (part, dragAreaScale));
+                resizePart(size, true);
+                PFUtils.updateDragCube(part, dragAreaScale);
             }
-
-            justLoaded = false;
         }
 
-        public void scaleNode (AttachNode node, float scale, bool setSize)
+        public void scaleNode (AttachNode node, float scale, bool setSize, bool pushAttachments)
         {
-            if (node == null)
+            if (node is AttachNode)
             {
-                return;
-            }
+                node.position = node.originalPosition * scale;
 
-            node.position = node.originalPosition * scale;
+                if (pushAttachments)
+                    PFUtils.updateAttachedPartPos(node, part);
 
-            if (!justLoaded)
-            {
-                PFUtils.updateAttachedPartPos (node, part);
-            }
+                if (setSize)
+                    node.size = Mathf.RoundToInt(scale / diameterStepLarge);
 
-            if (setSize)
-            {
-                node.size = Mathf.RoundToInt (scale / diameterStepLarge);
-            }
+                if (node.attachedPart is Part)
+                {
+                    var baseEventDatum = new BaseEventDetails(0);
 
-            if (node.attachedPart != null)
-            {
-                var baseEventDatum = new BaseEventDetails (0);
+                    baseEventDatum.Set("location", node.position);
+                    baseEventDatum.Set("orientation", node.orientation);
+                    baseEventDatum.Set("secondaryAxis", node.secondaryAxis);
+                    baseEventDatum.Set("node", node);
 
-                baseEventDatum.Set<Vector3>("location", node.position);
-                baseEventDatum.Set<Vector3>("orientation", node.orientation);
-                baseEventDatum.Set<Vector3>("secondaryAxis", node.secondaryAxis);
-                baseEventDatum.Set<AttachNode>("node", node);
-
-                node.attachedPart.SendEvent ("OnPartAttachNodePositionChanged", baseEventDatum);
+                    node.attachedPart.SendEvent("OnPartAttachNodePositionChanged", baseEventDatum);
+                }
             }
         }
 
@@ -151,14 +125,14 @@ namespace Keramzit
                 }
         }
 
-        public virtual void resizePart (float scale)
+        public virtual void resizePart (float scale, bool pushAttachments)
         {
             oldSize = size;
 
             part.mass = totalMass = ((specificMass.x * scale + specificMass.y) * scale + specificMass.z) * scale + specificMass.w;
 
             massDisplay = PFUtils.formatMass (totalMass);
-            costDisplay = PFUtils.formatCost (part.partInfo.cost + GetModuleCost(part.partInfo.cost, ModifierStagingSituation.CURRENT) + part.partInfo.cost);
+            costDisplay = PFUtils.formatCost (part.partInfo.cost + GetModuleCost(part.partInfo.cost, ModifierStagingSituation.CURRENT));
 
             part.breakingForce = specificBreakingForce * Mathf.Pow (scale, 2);
             part.breakingTorque = specificBreakingTorque * Mathf.Pow (scale, 2);
@@ -170,12 +144,12 @@ namespace Keramzit
 
             part.rescaleFactor = scale;
 
-            scaleNode(part.FindAttachNode ("top"), scale, true);
-            scaleNode(part.FindAttachNode ("bottom"), scale, true);
+            scaleNode(part.FindAttachNode ("top"), scale, true, pushAttachments);
+            scaleNode(part.FindAttachNode ("bottom"), scale, true, pushAttachments);
             if (part.FindAttachNodes("interstage") is AttachNode[] nodes)
                 foreach (AttachNode node in nodes)
                 {
-                    scaleNode(node, scale, true);
+                    scaleNode(node, scale, true, pushAttachments);
                 }
         }
     }
@@ -203,14 +177,14 @@ namespace Keramzit
                 }
         }
 
-        public override void resizePart (float scale)
+        public override void resizePart (float scale, bool pushAttachments)
         {
             float sth = CalcSideThickness();
 
             float br = size * 0.5f - sth;
             scale = br * 2;
 
-            base.resizePart (scale);
+            base.resizePart(scale, pushAttachments);
 
             var topNode = part.FindAttachNode ("top");
             var bottomNode = part.FindAttachNode ("bottom");
@@ -224,7 +198,7 @@ namespace Keramzit
                     node.position.y = y;
                     node.size = sideNodeSize;
 
-                    if (!justLoaded)
+                    if (pushAttachments)
                         PFUtils.updateAttachedPartPos(node, part);
                 }
 
@@ -235,16 +209,16 @@ namespace Keramzit
             {
                 fbase.baseSize = br * 2;
                 fbase.sideThickness = sth;
-                fbase.needShapeUpdate = true;
+                fbase.recalcShape();
             }
         }
     }
 
     public class KzThrustPlateResizer : KzPartResizer
     {
-        public override void resizePart (float scale)
+        public override void resizePart(float scale, bool pushAttachments)
         {
-            base.resizePart (scale);
+            base.resizePart(scale, pushAttachments);
 
             if (part.FindAttachNode("bottom") is AttachNode node &&
                 part.FindAttachNodes("bottom") is AttachNode[] nodes)
@@ -252,7 +226,7 @@ namespace Keramzit
                 foreach (AttachNode n in nodes)
                 {
                     n.position.y = node.position.y;
-                    if (!justLoaded)
+                    if (pushAttachments)
                         PFUtils.updateAttachedPartPos(n, part);
                 }
             }

@@ -51,9 +51,7 @@ namespace Keramzit
         [KSPField] public float heightStepLarge = 1.0f;
         [KSPField] public float heightStepSmall = 0.1f;
 
-        public float updateDelay;
         public bool needShapeUpdate = true;
-        Part topBasePart;
         LineRenderer line;
         readonly List<LineRenderer> outline = new List<LineRenderer>();
         readonly List<ConfigurableJoint> joints = new List<ConfigurableJoint>();
@@ -62,63 +60,56 @@ namespace Keramzit
 
         public override void OnStart (StartState state)
         {
-            if (!HighLogic.LoadedSceneIsEditor && !HighLogic.LoadedSceneIsFlight)
-            {
-                return;
-            }
+            if (!HighLogic.LoadedSceneIsEditor && !HighLogic.LoadedSceneIsFlight) return;
 
-            PFUtils.hideDragStuff (part);
-
+            PFUtils.hideDragStuff(part);
             if (HighLogic.LoadedSceneIsEditor)
             {
                 ConfigureTechLimits();
-                GameEvents.onEditorShipModified.Add(onEditorVesselModified);
-
                 if (line)
-                {
                     line.transform.Rotate (0, 90, 0);
-                }
 
                 DestroyAllLineRenderers ();
                 destroyOutline ();
+                BuildFairingOutline(outlineSlices, outlineColor, outlineWidth);
 
-                for (int i = 0; i < outlineSlices; ++i)
-                {
-                    var r = makeLineRenderer ("fairing outline", outlineColor, outlineWidth);
-                    outline.Add (r);
-                    r.transform.Rotate (0, i * 360f / outlineSlices, 0);
-                }
-
-                ShowHideInterstageNodes ();
+                ShowHideInterstageNodes();
                 recalcShape ();
-
-                updateDelay = 0.1f;
-                needShapeUpdate = true;
+                SetUIChangedCallBacks();
+                SetUIFieldVisibility();
+                GameEvents.onEditorShipModified.Add(onEditorVesselModified);
             }
             else
             {
-                topBasePart = null;
-
-                if (part.GetComponent<ProceduralFairingAdapter>() is ProceduralFairingAdapter adapter)
-                {
-                    topBasePart = adapter.getTopPart();
-                }
-                else
-                {
-                    var scan = scanPayload ();
-
-                    if (scan.targets.Count > 0)
-                    {
-                        topBasePart = scan.targets[0];
-                    }
-                }
+                GameEvents.onVesselWasModified.Add(onVesselModified);
             }
-
-            SetUIChangedCallBacks ();
-            OnToggleAutoshapeUI ();
         }
 
-        void SetUIChangedCallBacks ()
+        public void OnDestroy()
+        {
+            GameEvents.onEditorShipModified.Remove(onEditorVesselModified);
+            GameEvents.onVesselWasModified.Remove(onVesselModified);
+
+            if (line)
+            {
+                Destroy(line.gameObject);
+                line = null;
+            }
+            DestroyAllLineRenderers();
+            destroyOutline();
+        }
+
+        public override void OnUpdate()
+        {
+            base.OnUpdate();
+            if (HighLogic.LoadedSceneIsEditor && needShapeUpdate)
+            {
+                needShapeUpdate = false;
+                recalcShape();
+            }
+        }
+
+        void SetUIChangedCallBacks()
         {
             (Fields[nameof(autoShape)].uiControlEditor as UI_Toggle).onFieldChanged += OnChangeAutoshapeUI;
 
@@ -127,33 +118,51 @@ namespace Keramzit
             (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
         }
 
-        void OnChangeAutoshapeUI (BaseField bf, object obj)
+        void SetUIFieldVisibility()
         {
-            OnToggleAutoshapeUI ();
-
-            needShapeUpdate = true;
-        }
-
-        void OnToggleAutoshapeUI ()
-        {
-            Fields[nameof(manualMaxSize)].guiActiveEditor  = !autoShape;
+            Fields[nameof(manualMaxSize)].guiActiveEditor = !autoShape;
             Fields[nameof(manualCylStart)].guiActiveEditor = !autoShape;
-            Fields[nameof(manualCylEnd)].guiActiveEditor   = !autoShape;
-            MonoUtilities.RefreshPartContextWindow(part);
+            Fields[nameof(manualCylEnd)].guiActiveEditor = !autoShape;
         }
 
-        void OnChangeShapeUI (BaseField bf, object obj)
+        void OnChangeAutoshapeUI(BaseField bf, object obj)
         {
-            needShapeUpdate = true;
+            SetUIFieldVisibility();
+            recalcShape();
+        }
+
+        void OnChangeShapeUI(BaseField bf, object obj)
+        {
+            recalcShape();
+        }
+
+        public void OnPartPack() => removeJoints();
+
+        public void onShieldingDisabled(List<Part> shieldedParts) => removeJoints();
+
+        public void onShieldingEnabled(List<Part> shieldedParts)
+        {
+            if (HighLogic.LoadedSceneIsFlight && autoStrutSides)
+                StartCoroutine(createAutoStruts(shieldedParts));
         }
 
         void onEditorVesselModified (ShipConstruct ship)
         {
-            ShowHideInterstageNodes ();
-            needShapeUpdate = true;
+            ShowHideInterstageNodes();
+            recalcShape();
         }
 
-        public void ShowHideInterstageNodes ()
+        void onVesselModified(Vessel v)
+        {
+            if (vessel == v && !part.packed && 
+                part.GetComponent<ProceduralFairingAdapter>() is ProceduralFairingAdapter adapter)
+            {
+                if (adapter.getTopPart() == null)
+                    removeJoints();
+            }
+        }
+
+        public void ShowHideInterstageNodes()
         {
             if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt &&
                 part.FindAttachNodes("interstage") is AttachNode[] nodes)
@@ -165,68 +174,6 @@ namespace Keramzit
                         node.position.x = offset;
                 }
             }
-        }
-
-        public void removeJoints ()
-        {
-            foreach (ConfigurableJoint joint in joints)
-                Destroy(joint);
-            joints.Clear();
-        }
-
-        public void OnPartPack () => removeJoints ();
-
-        ConfigurableJoint addStrut (Part p, Part pp)
-        {
-            if (p && p != pp && p.Rigidbody != pp.Rigidbody && pp.Rigidbody is Rigidbody rb &&
-                p.gameObject.AddComponent<ConfigurableJoint>() is ConfigurableJoint joint)
-            {
-                joint.xMotion = ConfigurableJointMotion.Locked;
-                joint.yMotion = ConfigurableJointMotion.Locked;
-                joint.zMotion = ConfigurableJointMotion.Locked;
-                joint.angularXMotion = ConfigurableJointMotion.Locked;
-                joint.angularYMotion = ConfigurableJointMotion.Locked;
-                joint.angularZMotion = ConfigurableJointMotion.Locked;
-                joint.projectionDistance = 0.1f;
-                joint.projectionAngle = 5;
-                joint.breakForce = p.breakingForce;
-                joint.breakTorque = p.breakingTorque;
-                joint.connectedBody = rb;
-
-                joints.Add(joint);
-                return joint;
-            }
-            return null;
-        }
-
-        IEnumerator<YieldInstruction> createAutoStruts (List<Part> shieldedParts)
-        {
-            while (!FlightGlobals.ready || vessel.packed || !vessel.loaded)
-            {
-                yield return new WaitForFixedUpdate ();
-            }
-            if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt &&
-                part.FindAttachNodes("connect") is AttachNode[] attached)
-            {
-                for (int i = 0; i < nnt.numNodes; ++i)
-                {
-                    if (attached[i].attachedPart is Part p && p.Rigidbody &&
-                        attached[i > 0 ? i - 1 : nnt.numNodes - 1].attachedPart is Part pp)
-                    {
-                        addStrut(p, pp);
-                        if (topBasePart != null)
-                            addStrut(p, topBasePart);
-                    }
-                }
-            }
-        }
-
-        public void onShieldingDisabled (List<Part> shieldedParts) => removeJoints ();
-
-        public void onShieldingEnabled (List<Part> shieldedParts)
-        {
-            if (HighLogic.LoadedSceneIsFlight && autoStrutSides)
-                StartCoroutine(createAutoStruts(shieldedParts));
         }
 
         public void ConfigureTechLimits()
@@ -252,16 +199,80 @@ namespace Keramzit
             }
         }
 
-        public virtual void FixedUpdate ()
+        private Part FindTopBasePart()
         {
-            if (!part.packed && topBasePart != null &&
-                part.GetComponent<ProceduralFairingAdapter>() is ProceduralFairingAdapter adapter)
+            Part top = null;
+            if (part.GetComponent<ProceduralFairingAdapter>() is ProceduralFairingAdapter adapter)
             {
-                topBasePart = adapter.getTopPart();
-                if (topBasePart == null)
-                    removeJoints ();
+                top = adapter.getTopPart();
+            }
+            else
+            {
+                var scan = scanPayload();
+                if (scan.targets.Count > 0)
+                    top = scan.targets[0];
+            }
+            return top;
+        }
+
+        #region Struts and Joints
+
+        public void removeJoints()
+        {
+            foreach (ConfigurableJoint joint in joints)
+                Destroy(joint);
+            joints.Clear();
+        }
+
+        IEnumerator<YieldInstruction> createAutoStruts(List<Part> shieldedParts)
+        {
+            while (!FlightGlobals.ready || vessel.packed || !vessel.loaded)
+            {
+                yield return new WaitForFixedUpdate();
+            }
+            if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt &&
+                part.FindAttachNodes("connect") is AttachNode[] attached)
+            {
+                Part topBasePart = FindTopBasePart();
+                for (int i = 0; i < nnt.numNodes; ++i)
+                {
+                    if (attached[i].attachedPart is Part p && p.Rigidbody &&
+                        attached[i > 0 ? i - 1 : nnt.numNodes - 1].attachedPart is Part pp)
+                    {
+                        addStrut(p, pp);
+                        if (topBasePart != null)
+                            addStrut(p, topBasePart);
+                    }
+                }
             }
         }
+
+        ConfigurableJoint addStrut(Part p, Part pp)
+        {
+            if (p && p != pp && p.Rigidbody != pp.Rigidbody && pp.Rigidbody is Rigidbody rb &&
+                p.gameObject.AddComponent<ConfigurableJoint>() is ConfigurableJoint joint)
+            {
+                joint.xMotion = ConfigurableJointMotion.Locked;
+                joint.yMotion = ConfigurableJointMotion.Locked;
+                joint.zMotion = ConfigurableJointMotion.Locked;
+                joint.angularXMotion = ConfigurableJointMotion.Locked;
+                joint.angularYMotion = ConfigurableJointMotion.Locked;
+                joint.angularZMotion = ConfigurableJointMotion.Locked;
+                joint.projectionDistance = 0.1f;
+                joint.projectionAngle = 5;
+                joint.breakForce = p.breakingForce;
+                joint.breakTorque = p.breakingTorque;
+                joint.connectedBody = rb;
+
+                joints.Add(joint);
+                return joint;
+            }
+            return null;
+        }
+
+        #endregion
+
+        #region LineRenderers
 
         LineRenderer makeLineRenderer (string gameObjectName, Color color, float wd)
         {
@@ -308,37 +319,16 @@ namespace Keramzit
             }
         }
 
-        public void OnDestroy ()
+        #endregion
+
+        #region Fairing Shapes
+        private void BuildFairingOutline(int slices, Vector4 color, float width)
         {
-            GameEvents.onEditorShipModified.Remove(onEditorVesselModified);
-
-            if (line)
+            for (int i = 0; i < slices; ++i)
             {
-                Destroy (line.gameObject);
-                line = null;
-            }
-            DestroyAllLineRenderers ();
-            destroyOutline ();
-        }
-
-        public void Update ()
-        {
-            if (HighLogic.LoadedSceneIsEditor)
-            {
-                if (updateDelay > 0)
-                {
-                    updateDelay -= Time.deltaTime;
-                }
-                else
-                {
-                    if (needShapeUpdate)
-                    {
-                        needShapeUpdate = false;
-                        updateDelay = 0.1f;
-
-                        recalcShape ();
-                    }
-                }
+                var r = makeLineRenderer("fairing outline", color, width);
+                outline.Add(r);
+                r.transform.Rotate(0, i * 360f / slices, 0);
             }
         }
 
@@ -431,6 +421,8 @@ namespace Keramzit
 
             return shape;
         }
+
+        #endregion
 
         PayloadScan scanPayload ()
         {
