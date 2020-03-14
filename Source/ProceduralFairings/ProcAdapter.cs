@@ -4,9 +4,8 @@
 //  Licensed under CC-BY-4.0 terms: https://creativecommons.org/licenses/by/4.0/legalcode
 //  ==================================================
 
-using KSP.UI.Screens;
 using System;
-using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
 
 namespace Keramzit
@@ -62,7 +61,7 @@ namespace Keramzit
             UpdateShape(false);
         }
 
-        public void Update()
+        public virtual void Update()
         {
             if (HighLogic.LoadedSceneIsEditor)
             {
@@ -183,7 +182,7 @@ namespace Keramzit
 
         float lastExtraHt = -1000;
 
-        [KSPEvent (name = "decNoFairings", active = true, guiActive = true, guiActiveEditor = true, guiActiveUnfocused = true, groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [KSPEvent(name = "decNoFairings", active = true, guiActive = true, guiActiveEditor = true, guiActiveUnfocused = true, groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
         public void UIToggleTopNodeDecouple()
         {
             topNodeDecouplesWhenFairingsGone = !topNodeDecouplesWhenFairingsGone;
@@ -195,7 +194,6 @@ namespace Keramzit
         public float GetModuleCost(float defcost, ModifierStagingSituation sit) => (totalMass * costPerTonne) - defcost;
         public float GetModuleMass (float defmass, ModifierStagingSituation sit) => totalMass - defmass;
         public float CalcSideThickness() => Mathf.Min(sideThickness * Mathf.Max(baseSize, topSize), Mathf.Min(baseSize, topSize) * 0.25f);
-
         public float topRadius { get => (topSize / 2) - CalcSideThickness(); }
         public override float minHeight { get => baseSize * 0.2f;}
 
@@ -220,32 +218,31 @@ namespace Keramzit
         {
             base.OnStart (state);
             if (HighLogic.LoadedSceneIsEditor)
+            {
                 ConfigureTechLimits();
 
-            Fields[nameof(extraHeight)].uiControlEditor.onFieldChanged += OnExtraHeightChanged;
-            Fields[nameof(extraHeight)].uiControlEditor.onSymmetryFieldChanged += OnExtraHeightChanged;
+                Fields[nameof(extraHeight)].uiControlEditor.onFieldChanged += OnExtraHeightChanged;
+                Fields[nameof(extraHeight)].uiControlEditor.onSymmetryFieldChanged += OnExtraHeightChanged;
+            }
 
             UpdateUIdecNoFairingsText (topNodeDecouplesWhenFairingsGone);
-
             GameEvents.onVesselWasModified.Add(OnVesselWasModified);
-            GameEvents.onStageActivate.Add(OnStageActivate);
         }
 
         public override void OnStartFinished(StartState state)
         {
             base.OnStartFinished(state);
-            HandleAutomaticDecoupling();
+            StartCoroutine(HandleAutomaticDecoupling());
         }
 
         public void OnDestroy ()
         {
             GameEvents.onVesselWasModified.Remove(OnVesselWasModified);
-            GameEvents.onStageActivate.Remove(OnStageActivate);
         }
 
-        public override void OnUpdate()
+        public override void Update()
         {
-            base.OnUpdate();
+            base.Update();
             if (HighLogic.LoadedSceneIsEditor)
             {
                 if (extraHeight != lastExtraHt)
@@ -253,34 +250,19 @@ namespace Keramzit
             }
         }
 
-        public void OnExtraHeightChanged(BaseField f, object obj) 
-        {
-            if (extraHeight != lastExtraHt)
-                UpdateShape(true);
-            lastExtraHt = extraHeight;
-        }
+        public void OnExtraHeightChanged(BaseField f, object obj) => UpdateShape(true);
 
         void UpdateUIdecNoFairingsText(bool flag)
         {
             Events[nameof(UIToggleTopNodeDecouple)].guiName = $"Decouple when Fairing gone: {(flag ? "Yes" : "No")}";
         }
 
-        void OnVesselWasModified(Vessel ves) => HandleAutomaticDecoupling();
-
-        void OnStageActivate (int stage)
-        {
-            HandleAutomaticDecoupling();
-            if (part is Part && stage == part.inverseStage)
-            {
-                part.stackIcon.RemoveIcon();
-                StageManager.Instance.SortIcons(true);
-                Events[nameof(UIToggleTopNodeDecouple)].guiActive = false;
-            }
-        }
+        void OnVesselWasModified(Vessel ves) => StartCoroutine(HandleAutomaticDecoupling());
 
         public override void UpdateShape(bool pushAttachments)
         {
             base.UpdateShape(pushAttachments);
+            lastExtraHt = extraHeight;
 
             float sth = CalcSideThickness();
             float baseRadius = (baseSize / 2) - sth;
@@ -340,20 +322,19 @@ namespace Keramzit
             }
         }
 
-        public void HandleAutomaticDecoupling()
+        public IEnumerator HandleAutomaticDecoupling()
         {
             //  We used to remove the engine fairing (if there is any) from topmost node, but lately that's been causing NREs.  
             //  Since KSP gives us this option nativley, let's just use KSP to do that if we want.
-            if (!HighLogic.LoadedSceneIsFlight) return;
+            if (!HighLogic.LoadedSceneIsFlight) yield break;
+            yield return new WaitForFixedUpdate();
 
-            if (TopNodePartPresent && topNodeDecouplesWhenFairingsGone && FairingPresent)
+            if (TopNodePartPresent && topNodeDecouplesWhenFairingsGone && !FairingPresent)
             {
                 if (part.FindModuleImplementing<ModuleDecouple>() is ModuleDecouple item)
                 {
                     RemoveTopPartJoints();
                     item.Decouple();
-                    part.stackIcon.RemoveIcon();
-                    StageManager.Instance.SortIcons(true);
                 }
                 else
                 {
