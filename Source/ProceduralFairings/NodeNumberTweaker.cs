@@ -37,8 +37,55 @@ namespace Keramzit
         public bool showInterstageNodes = true;
 
         protected float oldRadius = -1000;
-
         public override string GetInfo() => $"Max Nodes: {maxNumber}";
+
+        public override void OnStart(StartState state)
+        {
+            base.OnStart (state);
+
+            (Fields[nameof(radius)].uiControlEditor as UI_FloatEdit).incrementLarge = radiusStepLarge;
+            (Fields[nameof(radius)].uiControlEditor as UI_FloatEdit).incrementSmall = radiusStepSmall;
+            Fields[nameof(radius)].guiActiveEditor = shouldResizeNodes;
+            Fields[nameof(radius)].uiControlEditor.onFieldChanged += OnRadiusChanged;
+            Fields[nameof(radius)].uiControlEditor.onSymmetryFieldChanged += OnRadiusChanged;
+
+            Fields[nameof(showInterstageNodes)].guiActiveEditor = part.FindAttachNodes("interstage") != null;
+            Fields[nameof(showInterstageNodes)].uiControlEditor.onFieldChanged += OnNodeVisibilityChanged;
+            Fields[nameof(showInterstageNodes)].uiControlEditor.onSymmetryFieldChanged += OnNodeVisibilityChanged;
+
+            //  Change the GUI text if there are no fairing attachment nodes.
+            if (part.FindAttachNodes("connect") == null)
+                Fields[nameof(uiNumNodes)].guiName = "Side Nodes";
+
+            (Fields[nameof(uiNumNodes)].uiControlEditor as UI_FloatRange).maxValue = maxNumber;
+            Fields[nameof(uiNumNodes)].uiControlEditor.onFieldChanged += OnNumNodesChanged;
+            Fields[nameof(uiNumNodes)].uiControlEditor.onSymmetryFieldChanged += OnNumNodesChanged;
+
+            uiNumNodes = numNodes;
+            numNodesBefore = numNodes;
+            ShowHideInterstageNodes();
+        }
+
+        public override void OnStartFinished(StartState state)
+        {
+            base.OnStartFinished(state);
+            AddRemoveNodes();
+            UpdateNodePositions(false);
+        }
+
+        private void Update()
+        {
+            if (HighLogic.LoadedSceneIsEditor)
+            {
+                if (radius != oldRadius)
+                    OnRadiusChanged(Fields[nameof(radius)], oldRadius);
+
+                if (Convert.ToInt32(uiNumNodes) != numNodesBefore)
+                    OnNumNodesChanged(Fields[nameof(uiNumNodes)], numNodesBefore);
+            }
+        }
+
+        public void OnNodeVisibilityChanged(BaseField f, object obj) => ShowHideInterstageNodes();
 
         public void OnRadiusChanged(BaseField f, object obj)
         {
@@ -56,68 +103,32 @@ namespace Keramzit
             {
                 numNodes = Convert.ToInt32(uiNumNodes);
                 numNodesBefore = numNodes;
-                UpdateNodes(true);
-
-                for (int i = numNodes + 1; i <= maxNumber; ++i)
-                {
-                    if (findNode(i) is AttachNode node)
-                        HideUnusedNode(node);
-                }
-                if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
-                    fbase.recalcShape();
+                AddRemoveNodes();
+                UpdateNodePositions(true);
             }
         }
 
-        public override void OnUpdate()
+        public void SetRadius(float rad)
         {
-            base.OnUpdate();
-            if (HighLogic.LoadedSceneIsEditor)
-            {
-                if (radius != oldRadius)
-                    OnRadiusChanged(Fields[nameof(radius)], oldRadius);
-
-                if (Convert.ToInt32(uiNumNodes) != numNodesBefore)
-                    OnNumNodesChanged(Fields[nameof(uiNumNodes)], numNodesBefore);
-            }
-        }
-
-        //  Slightly hacky...but it removes the ghost nodes.
-        void HideUnusedNode (AttachNode node) => node.position.x = 10000;
-
-        public override void OnStart (StartState state)
-        {
-            base.OnStart (state);
-
-            (Fields[nameof(radius)].uiControlEditor as UI_FloatEdit).incrementLarge = radiusStepLarge;
-            (Fields[nameof(radius)].uiControlEditor as UI_FloatEdit).incrementSmall = radiusStepSmall;
-            Fields[nameof(radius)].guiActiveEditor = shouldResizeNodes;
-            Fields[nameof(radius)].uiControlEditor.onFieldChanged += OnRadiusChanged;
-            Fields[nameof(radius)].uiControlEditor.onSymmetryFieldChanged += OnRadiusChanged;
-
-            Fields[nameof(showInterstageNodes)].guiActiveEditor = part.FindAttachNodes("interstage") != null;
-
-            //  Change the GUI text if there are no fairing attachment nodes.
-            if (part.FindAttachNodes("connect") == null)
-                Fields[nameof(uiNumNodes)].guiName = "Side Nodes";
-
-            (Fields[nameof(uiNumNodes)].uiControlEditor as UI_FloatRange).maxValue = maxNumber;
-            Fields[nameof(uiNumNodes)].uiControlEditor.onFieldChanged += OnNumNodesChanged;
-            Fields[nameof(uiNumNodes)].uiControlEditor.onSymmetryFieldChanged += OnNumNodesChanged;
-
-            uiNumNodes = numNodes;
-            numNodesBefore = numNodes;
-
-            UpdateNodes(false);
-        }
-
-        private void UpdateNodes(bool pushAttachments)
-        {
-            AddRemoveNodes();
-            UpdateNodePositions(pushAttachments);
+            radius = rad;
+            OnRadiusChanged(Fields[nameof(radius)], oldRadius);
         }
 
         string nodeName(int i) => $"{nodePrefix}{i:d2}";
-        AttachNode findNode(int i) => part.FindAttachNode(nodeName (i));
+        AttachNode findNode(int i) => part.FindAttachNode(nodeName(i));
+        void SetNodeVisibility(AttachNode node, bool show) => node.position.x = show ? 0 : 10000;
+
+        public void ShowHideInterstageNodes()
+        {
+            if (part.FindAttachNodes("interstage") is AttachNode[] nodes)
+            {
+                foreach (AttachNode node in nodes)
+                {
+                    if (node.attachedPart == null)
+                        SetNodeVisibility(node, showInterstageNodes);
+                }
+            }
+        }
 
         bool checkNodeAttachments()
         {
@@ -181,14 +192,11 @@ namespace Keramzit
                 if (findNode(i) is AttachNode node2)
                 {
                     if (HighLogic.LoadedSceneIsEditor)
-                        HideUnusedNode(node2);
+                        SetNodeVisibility(node2, false);
                     else
                         part.attachNodes.Remove(node2);
                 }
             }
-
-            if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
-                fbase.recalcShape();
         }
 
         private void UpdateNodePositions(bool pushAttachments)
@@ -204,6 +212,8 @@ namespace Keramzit
 
                     node.position.x = Mathf.Cos(a) * radius;
                     node.position.z = Mathf.Sin(a) * radius;
+                    node.originalPosition = node.position;
+                    //node.originalOrientation = node.orientation = new Vector3(node.position.x, 0, node.position.z).normalized; ;
 
                     if (shouldResizeNodes)
                         node.size = size;
@@ -211,12 +221,6 @@ namespace Keramzit
                     if (pushAttachments)
                         PFUtils.updateAttachedPartPos(node, part);
                 }
-            }
-
-            for (int i = numNodes + 1; i <= maxNumber; ++i)
-            {
-                if (findNode(i) is AttachNode node)
-                    HideUnusedNode(node);
             }
         }
     }
