@@ -62,7 +62,7 @@ namespace Keramzit
             UpdateShape(false);
         }
 
-        public override void OnUpdate()
+        public void Update()
         {
             if (HighLogic.LoadedSceneIsEditor)
             {
@@ -302,14 +302,13 @@ namespace Keramzit
             part.rescaleFactor = scale;
 
             if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt)
-                nnt.radius = baseSize / 2;
+                nnt.SetRadius(baseSize / 2);
 
             if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
             {
                 fbase.baseSize = baseRadius * 2;
                 fbase.sideThickness = sth;
                 fbase.recalcShape();
-                //fbase.needShapeUpdate = true;
             }
 
             PFUtils.updateDragCube(part, dragAreaScale);

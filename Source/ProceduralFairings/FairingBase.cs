@@ -73,11 +73,10 @@ namespace Keramzit
                 destroyOutline ();
                 BuildFairingOutline(outlineSlices, outlineColor, outlineWidth);
 
-                ShowHideInterstageNodes();
                 recalcShape ();
                 SetUIChangedCallBacks();
                 SetUIFieldVisibility();
-                GameEvents.onEditorShipModified.Add(onEditorVesselModified);
+                GameEvents.onPartAttach.Add(OnPartAttach);
             }
             else
             {
@@ -87,7 +86,7 @@ namespace Keramzit
 
         public void OnDestroy()
         {
-            GameEvents.onEditorShipModified.Remove(onEditorVesselModified);
+            GameEvents.onPartAttach.Remove(OnPartAttach);
             GameEvents.onVesselWasModified.Remove(onVesselModified);
 
             if (line)
@@ -99,9 +98,8 @@ namespace Keramzit
             destroyOutline();
         }
 
-        public override void OnUpdate()
+        public void Update()
         {
-            base.OnUpdate();
             if (HighLogic.LoadedSceneIsEditor && needShapeUpdate)
             {
                 needShapeUpdate = false;
@@ -131,10 +129,7 @@ namespace Keramzit
             recalcShape();
         }
 
-        void OnChangeShapeUI(BaseField bf, object obj)
-        {
-            recalcShape();
-        }
+        void OnChangeShapeUI(BaseField bf, object obj) => recalcShape();
 
         public void OnPartPack() => removeJoints();
 
@@ -146,10 +141,9 @@ namespace Keramzit
                 StartCoroutine(createAutoStruts(shieldedParts));
         }
 
-        void onEditorVesselModified (ShipConstruct ship)
+        void OnPartAttach(GameEvents.HostTargetAction<Part, Part> action)
         {
-            ShowHideInterstageNodes();
-            recalcShape();
+            if (action.target == part) needShapeUpdate = true;
         }
 
         void onVesselModified(Vessel v)
@@ -159,20 +153,6 @@ namespace Keramzit
             {
                 if (adapter.getTopPart() == null)
                     removeJoints();
-            }
-        }
-
-        public void ShowHideInterstageNodes()
-        {
-            if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt &&
-                part.FindAttachNodes("interstage") is AttachNode[] nodes)
-            {
-                float offset = nnt.showInterstageNodes ? 0 : 10000;
-                foreach (AttachNode node in nodes)
-                {
-                    if (node.attachedPart == null)
-                        node.position.x = offset;
-                }
             }
         }
 
@@ -841,33 +821,6 @@ namespace Keramzit
                     float ra = Mathf.Atan2(-nodePos.z, nodePos.x) * Mathf.Rad2Deg;
 
                     mf.transform.Rotate(0, ra, 0);
-
-                    if (sf.meshPos == mf.transform.localPosition
-                     && sf.meshRot == mf.transform.localRotation
-                     && sf.numSegs == numSegs
-                     && sf.numSideParts == numSideParts
-                     && sf.baseRad.Equals(baseRad)
-                     && sf.maxRad.Equals(maxRad)
-                     && sf.cylStart.Equals(cylStart)
-                     && sf.cylEnd.Equals(cylEnd)
-                     && sf.topRad.Equals(topRad)
-                     && sf.inlineHeight.Equals(topY)
-                     && sf.sideThickness.Equals(sideThickness)
-                     && !sf.baseCurveStartX.Equals(baseCurveStartX)
-                     && !sf.baseCurveStartY.Equals(baseCurveStartY)
-                     && !sf.baseCurveEndX.Equals(baseCurveEndX)
-                     && !sf.baseCurveEndY.Equals(baseCurveEndY)
-                     && !sf.baseConeSegments.Equals(baseConeSegments)
-                     && !sf.noseCurveStartX.Equals(noseCurveStartX)
-                     && !sf.noseCurveStartY.Equals(noseCurveStartY)
-                     && !sf.noseCurveEndX.Equals(noseCurveEndX)
-                     && !sf.noseCurveEndY.Equals(noseCurveEndY)
-                     && !sf.noseConeSegments.Equals(noseConeSegments)
-                     && !sf.noseHeightRatio.Equals(noseHeightRatio)
-                     && !sf.density.Equals(density))
-                    {
-                        continue;
-                    }
 
                     sf.meshPos = mf.transform.localPosition;
                     sf.meshRot = mf.transform.localRotation;

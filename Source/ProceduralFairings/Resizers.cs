@@ -47,10 +47,20 @@ namespace Keramzit
             base.OnStart (state);
 
             if (HighLogic.LoadedSceneIsEditor)
+            {
+                (Fields[nameof(size)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnSizeChanged;
+                (Fields[nameof(size)].uiControlEditor as UI_FloatEdit).onSymmetryFieldChanged += OnSizeChanged;
                 ConfigureTechLimits();
+            }
 
             updateNodeSize(size);
             resizePart(size, false);
+        }
+
+        private void OnSizeChanged(BaseField f, object obj)
+        {
+            resizePart(size, true);
+            PFUtils.updateDragCube(part, dragAreaScale);
         }
 
         public void ConfigureTechLimits()
@@ -71,14 +81,10 @@ namespace Keramzit
             }
         }
 
-        public override void OnUpdate()
+        public void Update()
         {
-            base.OnUpdate();
             if (HighLogic.LoadedSceneIsEditor && size != oldSize)
-            {
-                resizePart(size, true);
-                PFUtils.updateDragCube(part, dragAreaScale);
-            }
+                OnSizeChanged(Fields[nameof(size)], oldSize);
         }
 
         public void scaleNode (AttachNode node, float scale, bool setSize, bool pushAttachments)
@@ -203,7 +209,7 @@ namespace Keramzit
                 }
 
             if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt)
-                nnt.radius = size * 0.5f;
+                nnt.SetRadius(size / 2);
 
             if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
             {
@@ -233,7 +239,7 @@ namespace Keramzit
 
             if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt)
             {
-                nnt.radius = Math.Min(nnt.radius, size / 2);
+                nnt.SetRadius(Math.Min(nnt.radius, size / 2));
                 (nnt.Fields[nameof(nnt.radius)].uiControlEditor as UI_FloatEdit).maxValue = size / 2;
             }
         }
