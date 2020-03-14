@@ -4,7 +4,6 @@
 //  Licensed under CC-BY-4.0 terms: https://creativecommons.org/licenses/by/4.0/legalcode
 //  ==================================================
 
-using KSP.UI.Screens;
 using System.Collections;
 using UnityEngine;
 
@@ -24,11 +23,11 @@ namespace Keramzit
         [KSPField] public Vector3 forceVector = Vector3.right;
         [KSPField] public Vector3 torqueVector = -Vector3.forward;
 
-        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Ejection power", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Ejection power", guiFormat = "P0", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
         [UI_FloatRange(minValue = 0, maxValue = 1, stepIncrement = 0.01f)]
         public float ejectionPower = 0.32f;
 
-        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Ejection torque", groupName = PFUtils.PAWGroup)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Ejection torque", guiFormat = "P0", groupName = PFUtils.PAWGroup)]
         [UI_FloatRange(minValue = 0, maxValue = 1, stepIncrement = 0.01f)]
         public float torqueAmount = 0.01f;
 
@@ -46,8 +45,8 @@ namespace Keramzit
         {
             if (HighLogic.LoadedSceneIsEditor)
             {
-                (Fields[nameof(fairingStaged)].uiControlEditor as UI_Toggle).onFieldChanged += OnUpdateUI;
-                (Fields[nameof(fairingStaged)].uiControlEditor as UI_Toggle).onSymmetryFieldChanged += OnUpdateUI;
+                (Fields[nameof(fairingStaged)].uiControlEditor as UI_Toggle).onFieldChanged += ToggleFairingStaging;
+                (Fields[nameof(fairingStaged)].uiControlEditor as UI_Toggle).onSymmetryFieldChanged += ToggleFairingStaging;
             }
 
             ejectFx.audio = part.gameObject.AddComponent<AudioSource>();
@@ -65,27 +64,15 @@ namespace Keramzit
             else
                 Debug.LogError ($"[PF]: Cannot find decoupler sound: {ejectSoundUrl} for {this}");
 
-            //  Set the state of the "Jettison Fairing" PAW button.
+            part.stagingIcon = DefaultIcons.FUEL_TANK.ToString();
+            stagingEnabled = fairingStaged;
             SetJettisonEvents();
         }
 
-        public override void OnStartFinished(StartState state)
+        public override void OnActive()
         {
-            base.OnStartFinished(state);
-            // Previous version stated "the staging icons cannot be updated correctly via OnStart()"
-            if (HighLogic.LoadedSceneIsFlight || HighLogic.LoadedSceneIsEditor)
-                OnSetStagingIcons();
-        }
-
-        public void OnSetStagingIcons()
-        {
-            //  Set the staging icon for the parent part.
-            if (fairingStaged)
-                part.stackIcon.CreateIcon();
-            else
-                part.stackIcon.RemoveIcon();
-
-            StageManager.Instance.SortIcons(true);
+            base.OnActive();
+            if (fairingStaged) OnJettisonFairing();
         }
 
         private void SetJettisonEvents()
@@ -95,37 +82,25 @@ namespace Keramzit
             Actions[nameof(ActionJettison)].active = fairingStaged;
         }
 
-        void OnUpdateUI(BaseField bf, object obj) => OnSetStagingIcons();
+        void ToggleFairingStaging(BaseField bf, object obj)
+        {
+            stagingEnabled = fairingStaged;
+            part.UpdateStageability(false, true);
+        }
 
         private IEnumerator HandleFairingDecouple()
         {
             yield return new WaitForFixedUpdate();
             if (part.parent)
             {
-                var pfa = part.parent.GetComponent<ProceduralFairingAdapter>();
-                foreach (Part p in part.parent.children)
-                {
-                    //  Check if the top node allows decoupling when the fairing is also decoupled.
-                    if (pfa && !pfa.topNodeDecouplesWhenFairingsGone && p.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide)
-                        continue;
-
-                    if (p.GetComponents<ConfigurableJoint>() is ConfigurableJoint[] joints)
-                    {
-                        foreach (ConfigurableJoint joint in joints)
-                        {
-                            if (joint.GetComponent<Rigidbody>() == part.Rigidbody || joint.connectedBody == part.Rigidbody)
-                                Destroy(joint);
-                        }
-                    }
-                }
-
-                part.decouple(0);
+                part.decouple();
                 ejectFx.audio.Play();
+                stagingEnabled = fairingStaged = false;
+                part.UpdateStageability(false, true);
+                SetJettisonEvents();
             }
             yield return new WaitForFixedUpdate();
             ApplyForces();
-            fairingStaged = false;
-            SetJettisonEvents();
         }
 
         private void ApplyForces()
