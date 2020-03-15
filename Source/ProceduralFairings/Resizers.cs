@@ -26,8 +26,6 @@ namespace Keramzit
         [KSPField] public string minSizeName = "PROCFAIRINGS_MINDIAMETER";
         [KSPField] public string maxSizeName = "PROCFAIRINGS_MAXDIAMETER";
 
-        [KSPField] public float dragAreaScale = 1;
-
         [KSPField(guiActiveEditor = true, guiName = "Mass", groupName = PFUtils.PAWGroup)]
         public string massDisplay;
 
@@ -51,6 +49,7 @@ namespace Keramzit
                 (Fields[nameof(size)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnSizeChanged;
                 (Fields[nameof(size)].uiControlEditor as UI_FloatEdit).onSymmetryFieldChanged += OnSizeChanged;
                 ConfigureTechLimits();
+                StartCoroutine(EditorChangeDetector());
             }
 
             updateNodeSize(size);
@@ -60,7 +59,6 @@ namespace Keramzit
         private void OnSizeChanged(BaseField f, object obj)
         {
             resizePart(size, true);
-            PFUtils.updateDragCube(part, dragAreaScale);
         }
 
         public void ConfigureTechLimits()
@@ -81,10 +79,14 @@ namespace Keramzit
             }
         }
 
-        public void Update()
+        private System.Collections.IEnumerator EditorChangeDetector()
         {
-            if (HighLogic.LoadedSceneIsEditor && size != oldSize)
-                OnSizeChanged(Fields[nameof(size)], oldSize);
+            while (HighLogic.LoadedSceneIsEditor)
+            {
+                yield return new WaitForFixedUpdate();
+                if (size != oldSize)
+                    OnSizeChanged(Fields[nameof(size)], oldSize);
+            }
         }
 
         public void scaleNode (AttachNode node, float scale, bool setSize, bool pushAttachments)

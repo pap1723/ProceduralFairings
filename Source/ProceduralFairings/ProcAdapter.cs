@@ -46,14 +46,19 @@ namespace Keramzit
         public override void OnStart(StartState state)
         {
             base.OnStart(state);
-            Fields[nameof(baseSize)].uiControlEditor.onFieldChanged += OnSizeChanged;
-            Fields[nameof(baseSize)].uiControlEditor.onSymmetryFieldChanged += OnSizeChanged;
+            if (HighLogic.LoadedSceneIsEditor)
+            {
+                Fields[nameof(baseSize)].uiControlEditor.onFieldChanged += OnSizeChanged;
+                Fields[nameof(baseSize)].uiControlEditor.onSymmetryFieldChanged += OnSizeChanged;
 
-            Fields[nameof(topSize)].uiControlEditor.onFieldChanged += OnTopSizeChanged;
-            Fields[nameof(topSize)].uiControlEditor.onSymmetryFieldChanged += OnTopSizeChanged;
+                Fields[nameof(topSize)].uiControlEditor.onFieldChanged += OnTopSizeChanged;
+                Fields[nameof(topSize)].uiControlEditor.onSymmetryFieldChanged += OnTopSizeChanged;
 
-            Fields[nameof(height)].uiControlEditor.onFieldChanged += OnHeightChanged;
-            Fields[nameof(height)].uiControlEditor.onSymmetryFieldChanged += OnHeightChanged;
+                Fields[nameof(height)].uiControlEditor.onFieldChanged += OnHeightChanged;
+                Fields[nameof(height)].uiControlEditor.onSymmetryFieldChanged += OnHeightChanged;
+
+                StartCoroutine(EditorChangeDetector());
+            }
         }
 
         public override void OnStartFinished(StartState state)
@@ -61,10 +66,11 @@ namespace Keramzit
             UpdateShape(false);
         }
 
-        public virtual void Update()
+        private IEnumerator EditorChangeDetector()
         {
-            if (HighLogic.LoadedSceneIsEditor)
+            while (HighLogic.LoadedSceneIsEditor)
             {
+                yield return new WaitForFixedUpdate();
                 if (baseSize != lastBaseSize)
                     Fields[nameof(baseSize)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(baseSize)], lastBaseSize);
                 if (topSize != lastTopSize)
@@ -165,8 +171,6 @@ namespace Keramzit
         [KSPField] public float specificBreakingTorque = 6050;
         [KSPField] public float costPerTonne = 2000;
 
-        [KSPField] public float dragAreaScale = 1;
-
         [KSPField (isPersistant = true)]
         public bool topNodeDecouplesWhenFairingsGone;
 
@@ -223,6 +227,7 @@ namespace Keramzit
 
                 Fields[nameof(extraHeight)].uiControlEditor.onFieldChanged += OnExtraHeightChanged;
                 Fields[nameof(extraHeight)].uiControlEditor.onSymmetryFieldChanged += OnExtraHeightChanged;
+                StartCoroutine(EditorChangeDetector());
             }
 
             UpdateUIdecNoFairingsText (topNodeDecouplesWhenFairingsGone);
@@ -240,11 +245,11 @@ namespace Keramzit
             GameEvents.onVesselWasModified.Remove(OnVesselWasModified);
         }
 
-        public override void Update()
+        private IEnumerator EditorChangeDetector()
         {
-            base.Update();
-            if (HighLogic.LoadedSceneIsEditor)
+            while (HighLogic.LoadedSceneIsEditor)
             {
+                yield return new WaitForFixedUpdate();
                 if (extraHeight != lastExtraHt)
                     Fields[nameof(extraHeight)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(extraHeight)], lastExtraHt);
             }
@@ -292,8 +297,6 @@ namespace Keramzit
                 fbase.sideThickness = sth;
                 fbase.recalcShape();
             }
-
-            PFUtils.updateDragCube(part, dragAreaScale);
         }
 
         public void ConfigureTechLimits()
