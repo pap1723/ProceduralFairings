@@ -24,18 +24,9 @@ namespace Keramzit
         [KSPField] public float specificBreakingForce = 2000;
         [KSPField] public float specificBreakingTorque = 2000;
 
-        public float defaultBaseCurveStartX;
-        public float defaultBaseCurveStartY;
-        public float defaultBaseCurveEndX;
-        public float defaultBaseCurveEndY;
-        public float defaultBaseConeSegments;
-
-        public float defaultNoseCurveStartX;
-        public float defaultNoseCurveStartY;
-        public float defaultNoseCurveEndX;
-        public float defaultNoseCurveEndY;
-        public float defaultNoseConeSegments;
-        public float defaultNoseHeightRatio;
+        public float DefaultBaseConeSegments => part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().baseConeSegments;
+        public float DefaultNoseConeSegments => part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().noseConeSegments;
+        public float DefaultNoseHeightRatio => part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().noseHeightRatio;
 
         public float totalMass;
 
@@ -55,19 +46,19 @@ namespace Keramzit
         [UI_Toggle(disabledText = "Off", enabledText = "On")]
         public bool baseAutoShape = true;
 
-        [KSPField(isPersistant = true, guiName = "Base Point A", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [KSPField(isPersistant = true, guiName = "Base Start X", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
         [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float baseCurveStartX = 0.5f;
 
-        [KSPField(isPersistant = true, guiName = "Base Point B", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [KSPField(isPersistant = true, guiName = "Base Start Y", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
         [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float baseCurveStartY = 0.0f;
 
-        [KSPField(isPersistant = true, guiName = "Base Point C", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [KSPField(isPersistant = true, guiName = "Base End X", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
         [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float baseCurveEndX = 1.0f;
 
-        [KSPField(isPersistant = true, guiName = "Base Point D", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [KSPField(isPersistant = true, guiName = "Base End Y", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
         [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float baseCurveEndY = 0.5f;
 
@@ -79,19 +70,19 @@ namespace Keramzit
         [UI_Toggle(disabledText = "Off", enabledText = "On")]
         public bool noseAutoShape = true;
 
-        [KSPField(isPersistant = true, guiName = "Nose Point A", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [KSPField(isPersistant = true, guiName = "Nose Start X", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
         [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float noseCurveStartX = 0.5f;
 
-        [KSPField(isPersistant = true, guiName = "Nose Point B", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [KSPField(isPersistant = true, guiName = "Nose Start Y", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
         [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float noseCurveStartY = 0.0f;
 
-        [KSPField(isPersistant = true, guiName = "Nose Point C", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [KSPField(isPersistant = true, guiName = "Nose End X", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
         [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float noseCurveEndX = 1.0f;
 
-        [KSPField(isPersistant = true, guiName = "Nose Point D", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
+        [KSPField(isPersistant = true, guiName = "Nose End Y", guiFormat = "S4", groupName = PFUtils.PAWGroup)]
         [UI_FloatEdit(sigFigs = 2, minValue = 0.0f, maxValue = 1.0f, incrementLarge = 0.1f, incrementSmall = 0.01f, incrementSlide = 0.01f)]
         public float noseCurveEndY = 0.5f;
 
@@ -132,92 +123,120 @@ namespace Keramzit
             }
         }
 
-        public override void OnStart (StartState state)
+        public override void OnLoad(ConfigNode node)
         {
-            if (!HighLogic.LoadedSceneIsEditor && !shapeLock) 
-                rebuildMesh();
-
-            //  Set the initial fairing side curve values from the part config.
-
-            baseCurveStartX = baseConeShape.x;
-            baseCurveStartY = baseConeShape.y;
-            baseCurveEndX   = baseConeShape.z;
-            baseCurveEndY   = baseConeShape.w;
-
-            noseCurveStartX = noseConeShape.x;
-            noseCurveStartY = noseConeShape.y;
-            noseCurveEndX   = noseConeShape.z;
-            noseCurveEndY   = noseConeShape.w;
-
-            //  Save the default fairing side values for later use.
-
-            defaultBaseCurveStartX  = baseCurveStartX;
-            defaultBaseCurveStartY  = baseCurveStartY;
-            defaultBaseCurveEndX    = baseCurveEndX;
-            defaultBaseCurveEndY    = baseCurveEndY;
-            defaultBaseConeSegments = baseConeSegments;
-
-            defaultNoseCurveStartX  = noseCurveStartX;
-            defaultNoseCurveStartY  = noseCurveStartY;
-            defaultNoseCurveEndX    = noseCurveEndX;
-            defaultNoseCurveEndY    = noseCurveEndY;
-            defaultNoseConeSegments = noseConeSegments;
-            defaultNoseHeightRatio  = noseHeightRatio;
-
-            OnUpdateFairingSideUI();
-            OnToggleFairingShapeUI();
+            base.OnLoad(node);
+            // For prefab only: Initialize Base/Nose Curve Start/End X/Y from the Vector4.
+            // All other loads should reference the persistent value.
+            if (HighLogic.LoadedScene == GameScenes.LOADING)
+            {
+                ResetBaseCurve(false);
+                ResetNoseCurve(false);
+            }
         }
 
-        void OnUpdateFairingSideUI()
+        public override void OnStart (StartState state)
         {
-            (Fields[nameof(baseAutoShape)].uiControlEditor as UI_Toggle).onFieldChanged += OnChangeShapeUI;
-            (Fields[nameof(noseAutoShape)].uiControlEditor as UI_Toggle).onFieldChanged += OnChangeShapeUI;
+            // Delay rebuilding the mesh in the Editor, so the original model comes out of the part picker
+            if (HighLogic.LoadedSceneIsEditor)
+                part.OnEditorAttach += OnPartEditorAttach;
+            else 
+                rebuildMesh();
 
-            (Fields[nameof(baseCurveStartX)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
-            (Fields[nameof(baseCurveStartY)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
-            (Fields[nameof(baseCurveEndX)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
-            (Fields[nameof(baseCurveEndY)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
+            SetUICallbacks();
+            SetUIFieldVisibility();
+        }
 
-            (Fields[nameof(noseCurveStartX)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
-            (Fields[nameof(noseCurveStartY)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
-            (Fields[nameof(noseCurveEndX)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
-            (Fields[nameof(noseCurveEndY)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
-            (Fields[nameof(noseHeightRatio)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
+        public override void OnStartFinished(StartState state)
+        {
+            PFUtils.updateDragCube(part, 1);
+        }
 
-            (Fields[nameof(baseConeSegments)].uiControlEditor as UI_FloatRange).onFieldChanged += OnChangeShapeUI;
-            (Fields[nameof(noseConeSegments)].uiControlEditor as UI_FloatRange).onFieldChanged += OnChangeShapeUI;
-            (Fields[nameof(density)].uiControlEditor as UI_FloatRange).onFieldChanged += OnChangeShapeUI;
+        private void OnPartEditorAttach() => rebuildMesh();
+
+        void SetUICallbacks()
+        {
+            Fields[nameof(baseAutoShape)].uiControlEditor.onFieldChanged += OnChangeAutoShape;
+            Fields[nameof(noseAutoShape)].uiControlEditor.onFieldChanged += OnChangeAutoShape;
+
+            Fields[nameof(baseAutoShape)].uiControlEditor.onSymmetryFieldChanged += OnChangeAutoShape;
+            Fields[nameof(noseAutoShape)].uiControlEditor.onSymmetryFieldChanged += OnChangeAutoShape;
+
+            Fields[nameof(baseCurveStartX)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(baseCurveStartY)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(baseCurveEndX)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(baseCurveEndY)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+
+            Fields[nameof(baseCurveStartX)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(baseCurveStartY)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(baseCurveEndX)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(baseCurveEndY)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+
+            Fields[nameof(noseCurveStartX)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(noseCurveStartY)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(noseCurveEndX)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(noseCurveEndY)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(noseHeightRatio)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+
+            Fields[nameof(noseCurveStartX)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(noseCurveStartY)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(noseCurveEndX)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(noseCurveEndY)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(noseHeightRatio)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+
+            Fields[nameof(baseConeSegments)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(noseConeSegments)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(density)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+
+            Fields[nameof(baseConeSegments)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(noseConeSegments)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(density)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+        }
+
+        void OnChangeAutoShape(BaseField field, object obj)
+        {
+            if (baseAutoShape)
+            {
+                ResetBaseCurve(true);
+                baseConeSegments = DefaultBaseConeSegments;
+            }
+
+            if (noseAutoShape)
+            {
+                ResetNoseCurve(true);
+                noseConeSegments = DefaultNoseConeSegments;
+                noseHeightRatio = DefaultNoseHeightRatio;
+            }
+            SetUIFieldVisibility();
+            OnChangeShapeUI(field, obj);
         }
 
         void OnChangeShapeUI(BaseField bf, object obj)
         {
-            //  Set the default values of the fairing side base parameters if the auto-shape is enabled.
-            if (baseAutoShape)
-            {
-                baseCurveStartX  = defaultBaseCurveStartX;
-                baseCurveStartY  = defaultBaseCurveStartY;
-                baseCurveEndX    = defaultBaseCurveEndX;
-                baseCurveEndY    = defaultBaseCurveEndY;
-                baseConeSegments = defaultBaseConeSegments;
-            }
-
-            //  Set the default values of the fairing side nose parameters if the auto-shape is enabled.
-            if (noseAutoShape)
-            {
-                noseCurveStartX  = defaultNoseCurveStartX;
-                noseCurveStartY  = defaultNoseCurveStartY;
-                noseCurveEndX    = defaultNoseCurveEndX;
-                noseCurveEndY    = defaultNoseCurveEndY;
-                noseConeSegments = defaultNoseConeSegments;
-                noseHeightRatio  = defaultNoseHeightRatio;
-            }
-
-            OnToggleFairingShapeUI();
+            // Defer ProceduralFairingBase.recalcShape() until all attached fairingSides have updated their values.
             if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
-                fbase.recalcShape();
+                fbase.needShapeUpdate = true;
+            else
+                rebuildMesh();
         }
 
-        void OnToggleFairingShapeUI ()
+        private void ResetBaseCurve(bool fromPrefab = false)
+        {
+            baseCurveStartX = fromPrefab ? part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().baseConeShape.x : baseConeShape.x;
+            baseCurveStartY = fromPrefab ? part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().baseConeShape.y : baseConeShape.y;
+            baseCurveEndX = fromPrefab ? part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().baseConeShape.z : baseConeShape.z;
+            baseCurveEndY = fromPrefab ? part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().baseConeShape.w : baseConeShape.w;
+        }
+
+        private void ResetNoseCurve(bool fromPrefab = false)
+        {
+            noseCurveStartX = fromPrefab ? part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().noseConeShape.x : noseConeShape.x;
+            noseCurveStartY = fromPrefab ? part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().noseConeShape.y : noseConeShape.y;
+            noseCurveEndX = fromPrefab ? part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().noseConeShape.z : noseConeShape.z;
+            noseCurveEndY = fromPrefab ? part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().noseConeShape.w : noseConeShape.w;
+        }
+
+        void SetUIFieldVisibility()
         {
             Fields[nameof(baseCurveStartX)].guiActiveEditor  = !baseAutoShape;
             Fields[nameof(baseCurveStartY)].guiActiveEditor  = !baseAutoShape;
@@ -250,23 +269,79 @@ namespace Keramzit
             costDisplay = PFUtils.formatCost(perPartCost * (nsym + 1)) + s;
         }
 
+        private void RebuildColliders()
+        {
+            if (part.FindModelComponent<MeshFilter>("model") is MeshFilter mf)
+            {
+                //  Remove any old colliders.
+                foreach (Collider c in part.FindModelComponents<Collider>())
+                    Destroy(c.gameObject);
+
+                float maxAnglePerCollider = 30;
+                float anglePerPart = 360f / numSideParts;
+                int numColliders = Mathf.CeilToInt(anglePerPart / maxAnglePerCollider);
+                float anglePerCollider = anglePerPart / numColliders;
+
+                float collWidth = (maxRad + sideThickness * 0.5f) * Mathf.PI * 2 / (numSideParts * numColliders);
+                float collCenter = (cylStart + cylEnd) / 2;
+                float collHeight = cylEnd - cylStart;
+                if (collHeight <= 0)
+                {
+                    Debug.LogWarning($"[PF] rebuildMesh() collHeight was negative ({collHeight}) from start {cylStart} > end {cylEnd}");
+                    collHeight = Mathf.Abs(collHeight);
+                }
+
+                float startAngle = (-anglePerPart + anglePerCollider) / 2;
+                //  Add the new colliders.
+                for (int i = 0; i < numColliders; i++)
+                {
+                    GameObject obj = new GameObject($"collider_{i}");
+                    BoxCollider coll = obj.AddComponent<BoxCollider>();
+                    coll.transform.parent = mf.transform;
+                    coll.transform.localPosition = Vector3.zero;
+                    coll.transform.localRotation = Quaternion.AngleAxis(startAngle + (i * anglePerCollider), Vector3.up);
+                    coll.center = new Vector3(maxRad + sideThickness * 0.5f, collCenter, 0);
+                    coll.size = new Vector3(sideThickness, collHeight, collWidth);
+                }
+                {
+                    //  Nose collider.
+                    GameObject obj = new GameObject("nose_collider");
+                    SphereCollider coll = obj.AddComponent<SphereCollider>();
+                    float r = (inlineHeight > 0) ? sideThickness / 2 : maxRad * 0.2f;
+                    float tip = maxRad * noseHeightRatio;
+
+                    coll.transform.parent = mf.transform;
+                    coll.transform.localRotation = Quaternion.identity;
+                    coll.transform.localPosition = (inlineHeight > 0) ?
+                                                    new Vector3(maxRad + r, collCenter, 0) :
+                                                    new Vector3(r, cylEnd + tip - r * 1.2f, 0);
+                    coll.center = Vector3.zero;
+                    coll.radius = r;
+                }
+            }
+        }
+
+        private void UpdatePartParameters(double area)
+        {
+            float volume = Convert.ToSingle(area * sideThickness);
+            part.mass = totalMass = volume * density;
+            part.breakingForce = part.mass * specificBreakingForce;
+            part.breakingTorque = part.mass * specificBreakingTorque;
+        }
+
         public void rebuildMesh ()
         {
             var mf = part.FindModelComponent<MeshFilter>("model");
-
             if (!mf)
             {
                 Debug.LogError ("[PF]: No model for side fairing!", part);
-
                 return;
             }
 
             Mesh m = mf.mesh;
-
             if (!m)
             {
                 Debug.LogError ("[PF]: No mesh in side fairing model!", part);
-
                 return;
             }
 
@@ -278,7 +353,6 @@ namespace Keramzit
             //  Build the fairing shape line.
 
             float tip = maxRad * noseHeightRatio;
-
             baseConeShape = new Vector4 (baseCurveStartX, baseCurveStartY, baseCurveEndX, baseCurveEndY);
             noseConeShape = new Vector4 (noseCurveStartX, noseCurveStartY, noseCurveEndX, noseCurveEndY);
             Vector3[] shape = inlineHeight <= 0 ?
@@ -288,12 +362,10 @@ namespace Keramzit
             //  Set up parameters.
 
             var dirs = new Vector3 [numSegs + 1];
-
             for (int i = 0; i <= numSegs; ++i)
             {
                 float a = Mathf.PI * 2 * (i - numSegs * 0.5f) / (numSideParts * numSegs);
-
-                dirs [i] = new Vector3 (Mathf.Cos (a), 0, Mathf.Sin (a));
+                dirs[i] = new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a));
             }
 
             float segOMappingScale = (horMapping.y - horMapping.x) / (mappingScale.x * numSegs);
@@ -315,8 +387,6 @@ namespace Keramzit
 
             float ringSegLen = baseRad * Mathf.PI * 2 / (numSegs * numSideParts);
             float topRingSegLen = topRad * Mathf.PI * 2 / (numSegs * numSideParts);
-
-            float collWidth = maxRad * Mathf.PI * 2 / (numSideParts * 3);
 
             int numMainVerts = (numSegs + 1) * (shape.Length - 1) + 1;
             int numMainFaces = numSegs * ((shape.Length - 2) * 2 + 1);
@@ -343,81 +413,24 @@ namespace Keramzit
             }
 
             var p = shape [shape.Length - 1];
-
             float topY = p.y, topV = p.z;
 
-            float collCenter = (cylStart + cylEnd) / 2;
-            float collHeight = cylEnd - cylStart;
-
-            if (collHeight <= 0)
-            {
-                collHeight = Mathf.Min (topY - cylEnd, cylStart) / 2;
-            }
-
             //  Compute the area.
-
             double area = 0;
-
             for (int i = 1; i < shape.Length; ++i)
             {
                 area += (shape [i - 1].x + shape [i].x) * (shape [i].y - shape [i - 1].y) * Mathf.PI / numSideParts;
             }
 
-            //  Set the parameters based on volume.
-
-            float volume = (float) (area * sideThickness);
-
-            part.mass = totalMass = volume * density;
-            part.breakingForce = part.mass * specificBreakingForce;
-            part.breakingTorque = part.mass * specificBreakingTorque;
+            UpdatePartParameters(area);
             UpdateMassAndCostDisplay();
 
-            var offset = new Vector3 (maxRad * 0.7f, topY * 0.5f, 0);
+            float anglePerPart = 360f / numSideParts;
+            float x = Mathf.Cos(Mathf.Deg2Rad * anglePerPart / 2);
+            Vector3 offset = new Vector3(maxRad * (1 + x) / 2, topY * 0.5f, 0);
+            part.CoMOffset = part.transform.InverseTransformPoint(mf.transform.TransformPoint(offset));
 
-            part.CoMOffset = part.transform.InverseTransformPoint (mf.transform.TransformPoint (offset));
-
-            //  Remove any old colliders.
-            foreach (Collider c in part.FindModelComponents<Collider>())
-                Destroy(c.gameObject);
-
-            //  Add the new colliders.
-
-            for (int i = -1; i <= 1; ++i)
-            {
-                var obj = new GameObject ("collider");
-
-                obj.transform.parent = mf.transform;
-                obj.transform.localPosition = Vector3.zero;
-                obj.transform.localRotation = Quaternion.AngleAxis (90f * i / numSideParts, Vector3.up);
-
-                var coll = obj.AddComponent<BoxCollider>();
-
-                coll.center = new Vector3 (maxRad + sideThickness * 0.5f, collCenter, 0);
-                coll.size = new Vector3 (sideThickness, collHeight, collWidth);
-            }
-            {
-                //  Nose collider.
-
-                float r = maxRad * 0.2f;
-
-                var obj = new GameObject ("nose_collider");
-
-                obj.transform.parent = mf.transform;
-                obj.transform.localPosition = new Vector3 (r, cylEnd + tip - r * 1.2f, 0);
-                obj.transform.localRotation = Quaternion.identity;
-
-                if (inlineHeight > 0)
-                {
-                    r = sideThickness * 0.5f;
-
-                    obj.transform.localPosition = new Vector3 (maxRad + r, collCenter, 0);
-                }
-
-                var coll = obj.AddComponent<SphereCollider>();
-
-                coll.center = Vector3.zero;
-                coll.radius = r;
-            }
+            RebuildColliders();
 
             //  Build the fairing mesh.
 
@@ -740,8 +753,6 @@ namespace Keramzit
             }
 
             m.triangles = tri;
-
-            StartCoroutine (PFUtils.updateDragCubeCoroutine (part, 1));
         }
     }
 }
