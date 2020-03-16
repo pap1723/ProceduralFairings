@@ -155,11 +155,12 @@ namespace Keramzit
 
         protected void UpdateNode(AttachNode node, float height, int size, bool pushAttachments)
         {
+            Vector3 oldPosWorld = part.transform.TransformPoint(node.position);
             node.position.y = height;
             node.size = size;
 
             if (pushAttachments)
-                PFUtils.updateAttachedPartPos(node, part);
+                PFUtils.updateAttachedPartPos(node, part, oldPosWorld);
         }
     }
 

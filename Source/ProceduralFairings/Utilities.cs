@@ -93,12 +93,12 @@ namespace Keramzit
             }
         }
 
-        public static void updateAttachedPartPos (AttachNode node, Part part)
+        public static void updateAttachedPartPos (AttachNode node, Part part, Vector3 oldPosWorld)
         {
             if (node is AttachNode && part is Part && 
                 node.attachedPart is Part ap && ap.FindAttachNodeByPart(part) is AttachNode an)
             {
-                var dp = part.transform.TransformPoint(node.position) - ap.transform.TransformPoint(an.position);
+                var dp = part.transform.TransformPoint(node.position) - oldPosWorld;
 
                 if (ap == part.parent)
                 {

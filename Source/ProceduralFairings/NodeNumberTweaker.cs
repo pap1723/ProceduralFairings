@@ -209,6 +209,7 @@ namespace Keramzit
                 if (findNode(i) is AttachNode node)
                 {
                     float a = Mathf.PI * 2 * (i - 1) / numNodes;
+                    Vector3 oldPosWorld = part.transform.TransformPoint(node.position);
 
                     node.position.x = Mathf.Cos(a) * radius;
                     node.position.z = Mathf.Sin(a) * radius;
@@ -219,7 +220,7 @@ namespace Keramzit
                         node.size = size;
 
                     if (pushAttachments)
-                        PFUtils.updateAttachedPartPos(node, part);
+                        PFUtils.updateAttachedPartPos(node, part, oldPosWorld);
                 }
             }
         }

@@ -93,10 +93,11 @@ namespace Keramzit
         {
             if (node is AttachNode)
             {
+                Vector3 oldPosWorld = part.transform.TransformPoint(node.position);
                 node.position = node.originalPosition * scale;
 
                 if (pushAttachments)
-                    PFUtils.updateAttachedPartPos(node, part);
+                    PFUtils.updateAttachedPartPos(node, part, oldPosWorld);
 
                 if (setSize)
                     node.size = Mathf.RoundToInt(scale / diameterStepLarge);
@@ -203,11 +204,12 @@ namespace Keramzit
             if (part.FindAttachNodes("connect") is AttachNode[] nodes)
                 foreach (AttachNode node in nodes)
                 {
+                    Vector3 oldPosWorld = part.transform.TransformPoint(node.position);
                     node.position.y = y;
                     node.size = sideNodeSize;
 
                     if (pushAttachments)
-                        PFUtils.updateAttachedPartPos(node, part);
+                        PFUtils.updateAttachedPartPos(node, part, oldPosWorld);
                 }
 
             if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt)
@@ -233,9 +235,10 @@ namespace Keramzit
             {
                 foreach (AttachNode n in nodes)
                 {
+                    Vector3 oldPosWorld = part.transform.TransformPoint(n.position);
                     n.position.y = node.position.y;
                     if (pushAttachments)
-                        PFUtils.updateAttachedPartPos(n, part);
+                        PFUtils.updateAttachedPartPos(n, part, oldPosWorld);
                 }
             }
 
