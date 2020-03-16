@@ -12,6 +12,8 @@ namespace Keramzit
 {
     public class ProceduralFairingBase : PartModule
     {
+        public const float MaxCylinderDimension = 50;
+
         [KSPField] public float outlineWidth = 0.05f;
         [KSPField] public int outlineSlices = 12;
         [KSPField] public Vector4 outlineColor = new Vector4(0, 0, 0.2f, 1);
@@ -38,11 +40,11 @@ namespace Keramzit
         public float manualMaxSize = 0.625f;
 
         [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Cyl. start", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup)]
-        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0, maxValue = 50, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0, maxValue = MaxCylinderDimension, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
         public float manualCylStart = 0;
 
         [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Cyl. end", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup)]
-        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0, maxValue = 50, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0, maxValue = MaxCylinderDimension, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
         public float manualCylEnd = 1;
 
         [KSPField] public float diameterStepLarge = 1.25f;
@@ -70,24 +72,31 @@ namespace Keramzit
                     line.transform.Rotate (0, 90, 0);
 
                 DestroyAllLineRenderers ();
-                destroyOutline ();
+                DestroyOutline();
                 BuildFairingOutline(outlineSlices, outlineColor, outlineWidth);
 
-                recalcShape ();
                 SetUIChangedCallBacks();
                 SetUIFieldVisibility();
+                SetUIFieldLimits();
                 GameEvents.onPartAttach.Add(OnPartAttach);
+                StartCoroutine(EditorChangeDetector());
             }
             else
             {
-                GameEvents.onVesselWasModified.Add(onVesselModified);
+                GameEvents.onVesselWasModified.Add(OnVesselModified);
             }
+        }
+
+        public override void OnStartFinished(StartState state) 
+        {
+            base.OnStartFinished(state);
+            PFUtils.updateDragCube(part, 1);
         }
 
         public void OnDestroy()
         {
             GameEvents.onPartAttach.Remove(OnPartAttach);
-            GameEvents.onVesselWasModified.Remove(onVesselModified);
+            GameEvents.onVesselWasModified.Remove(OnVesselModified);
 
             if (line)
             {
@@ -95,25 +104,31 @@ namespace Keramzit
                 line = null;
             }
             DestroyAllLineRenderers();
-            destroyOutline();
+            DestroyOutline();
         }
 
-        public void Update()
+        private System.Collections.IEnumerator EditorChangeDetector()
         {
-            if (HighLogic.LoadedSceneIsEditor && needShapeUpdate)
+            while (HighLogic.LoadedSceneIsEditor)
             {
+                yield return new WaitForFixedUpdate();
+                if (needShapeUpdate) recalcShape();
                 needShapeUpdate = false;
-                recalcShape();
             }
         }
 
         void SetUIChangedCallBacks()
         {
-            (Fields[nameof(autoShape)].uiControlEditor as UI_Toggle).onFieldChanged += OnChangeAutoshapeUI;
-
-            (Fields[nameof(manualMaxSize)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
-            (Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
-            (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(autoShape)].uiControlEditor.onFieldChanged += OnChangeAutoshapeUI;
+            Fields[nameof(autoShape)].uiControlEditor.onSymmetryFieldChanged += OnChangeAutoshapeUI;
+            Fields[nameof(extraRadius)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(extraRadius)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualMaxSize)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualMaxSize)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualCylStart)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualCylStart)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualCylEnd)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualCylEnd)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
         }
 
         void SetUIFieldVisibility()
@@ -129,7 +144,24 @@ namespace Keramzit
             recalcShape();
         }
 
-        void OnChangeShapeUI(BaseField bf, object obj) => recalcShape();
+        void OnChangeShapeUI(BaseField bf, object obj)
+        {
+            SetUIFieldLimits();
+            recalcShape();
+        }
+
+        private void SetUIFieldLimits()
+        {
+            UI_FloatEdit start = Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit;
+            UI_FloatEdit end = Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit;
+            start.maxValue = Mathf.Min(manualCylEnd, MaxCylinderDimension - 0.1f);
+            end.minValue = Mathf.Min(manualCylStart, MaxCylinderDimension - 0.1f);
+            bool refresh = manualCylStart > start.maxValue || manualCylEnd < end.minValue;
+            manualCylStart = Mathf.Min(manualCylStart, start.maxValue);
+            manualCylEnd = Mathf.Max(manualCylEnd, end.minValue);
+            if (refresh) 
+                MonoUtilities.RefreshPartContextWindow(part);
+        }
 
         public void OnPartPack() => removeJoints();
 
@@ -143,10 +175,14 @@ namespace Keramzit
 
         void OnPartAttach(GameEvents.HostTargetAction<Part, Part> action)
         {
-            if (action.target == part) needShapeUpdate = true;
+            // Resizer.cs handles our scale factor/mesh.
+            // Shape Update only handles the fairing side shape.
+            // On loading any craft, the sideFairing knows its shape already.
+            // Thus only need to do this when our attachment state will change.
+            needShapeUpdate = HighLogic.LoadedSceneIsEditor;
         }
 
-        void onVesselModified(Vessel v)
+        void OnVesselModified(Vessel v)
         {
             if (vessel == v && !part.packed && 
                 part.GetComponent<ProceduralFairingAdapter>() is ProceduralFairingAdapter adapter)
@@ -254,7 +290,7 @@ namespace Keramzit
 
         #region LineRenderers
 
-        LineRenderer makeLineRenderer (string gameObjectName, Color color, float wd)
+        LineRenderer MakeLineRenderer(string gameObjectName, Color color, float wd)
         {
             var o = new GameObject (gameObjectName);
 
@@ -275,11 +311,11 @@ namespace Keramzit
             return lineRenderer;
         }
 
-        void destroyOutline ()
+        void DestroyOutline()
         {
             foreach (LineRenderer r in outline)
                 Destroy(r.gameObject);
-            outline.Clear ();
+            outline.Clear();
         }
 
         /// <summary>
@@ -287,7 +323,7 @@ namespace Keramzit
         /// Find any already assigned (copied) LineRenderers and delete them.
         /// </summary>
 
-        void DestroyAllLineRenderers ()
+        void DestroyAllLineRenderers()
         {
             foreach (LineRenderer r in FindObjectsOfType<LineRenderer>())
             {
@@ -306,7 +342,7 @@ namespace Keramzit
         {
             for (int i = 0; i < slices; ++i)
             {
-                var r = makeLineRenderer("fairing outline", color, width);
+                var r = MakeLineRenderer("fairing outline", color, width);
                 outline.Add(r);
                 r.transform.Rotate(0, i * 360f / slices, 0);
             }
@@ -454,11 +490,8 @@ namespace Keramzit
             {
                 foreach (AttachNode node in nodes)
                 {
-                    if (node.attachedPart is Part p)
-                    {
-                        if (p.GetComponent<type>() is type)
-                            return node;
-                    }
+                    if (node.attachedPart is Part p && p.GetComponent<type>() is type)
+                        return node;
                 }
             }
             return null;
@@ -550,55 +583,29 @@ namespace Keramzit
             var nnt = part.GetComponent<KzNodeNumberTweaker>();
             int numSideParts = nnt.numNodes;
 
-            var baseConeShape = new Vector4 (0, 0, 0, 0);
-            var noseConeShape = new Vector4 (0, 0, 0, 0);
-            var mappingScale = new Vector2 (1024, 1024);
-            var stripMapping = new Vector2 (992, 1024);
-            var horMapping = new Vector4 (0, 480, 512, 992);
-            var vertMapping = new Vector4 (0, 160, 704, 1024);
+            ProceduralFairingSide sf = sideNode?.attachedPart.GetComponent<ProceduralFairingSide>();
 
-            float baseCurveStartX = 0;
-            float baseCurveStartY = 0;
-            float baseCurveEndX = 0;
-            float baseCurveEndY = 0;
+            var baseConeShape = sf ? sf.baseConeShape : new Vector4 (0, 0, 0, 0);
+            var noseConeShape = sf ? sf.noseConeShape : new Vector4 (0, 0, 0, 0);
+            var mappingScale = sf ? sf.mappingScale : new Vector2 (1024, 1024);
+            var stripMapping = sf ? sf.stripMapping : new Vector2 (992, 1024);
+            var horMapping = sf ? sf.horMapping : new Vector4 (0, 480, 512, 992);
+            var vertMapping = sf ? sf.vertMapping : new Vector4 (0, 160, 704, 1024);
 
-            int baseConeSegments = 1;
+            float baseCurveStartX = sf ? sf.baseCurveStartX : 0;
+            float baseCurveStartY = sf ? sf.baseCurveStartY : 0;
+            float baseCurveEndX = sf ? sf.baseCurveEndX : 0;
+            float baseCurveEndY = sf ? sf.baseCurveEndY : 0;
+            int baseConeSegments = sf ? Convert.ToInt32(sf.baseConeSegments) : 1;
 
-            float noseCurveStartX = 0;
-            float noseCurveStartY = 0;
-            float noseCurveEndX = 0;
-            float noseCurveEndY = 0;
-
-            int noseConeSegments = 1;
-            float noseHeightRatio = 1;
-            float minBaseConeAngle = 20;
-
-            float density = 0;
-
-            if (sideNode != null)
-            {
-                var sf = sideNode.attachedPart.GetComponent<ProceduralFairingSide>();
-
-                mappingScale = sf.mappingScale;
-                stripMapping = sf.stripMapping;
-                horMapping = sf.horMapping;
-                vertMapping = sf.vertMapping;
-                noseHeightRatio = sf.noseHeightRatio;
-                minBaseConeAngle = sf.minBaseConeAngle;
-                baseConeShape = sf.baseConeShape;
-                baseCurveStartX = sf.baseCurveStartX;
-                baseCurveStartY = sf.baseCurveStartY;
-                baseCurveEndX = sf.baseCurveEndX;
-                baseCurveEndY = sf.baseCurveEndY;
-                baseConeSegments = (int) sf.baseConeSegments;
-                noseConeShape = sf.noseConeShape;
-                noseCurveStartX = sf.noseCurveStartX;
-                noseCurveStartY = sf.noseCurveStartY;
-                noseCurveEndX = sf.noseCurveEndX;
-                noseCurveEndY = sf.noseCurveEndY;
-                noseConeSegments = (int) sf.noseConeSegments;
-                density = sf.density;
-            }
+            float noseCurveStartX = sf ? sf.noseCurveStartX : 0;
+            float noseCurveStartY = sf ? sf.noseCurveStartY : 0;
+            float noseCurveEndX = sf ? sf.noseCurveEndX : 0;
+            float noseCurveEndY = sf ? sf.noseCurveEndY : 0;
+            int noseConeSegments = sf ? Convert.ToInt32(sf.noseConeSegments) : 1 ;
+            float noseHeightRatio = sf ? sf.noseHeightRatio : 1;
+            float minBaseConeAngle = sf ? sf.minBaseConeAngle : 20;
+            float density = sf ? sf.density : 0;
 
             //   Compute the fairing shape.
 
@@ -809,8 +816,8 @@ namespace Keramzit
             foreach (AttachNode sn in attached)
             {
                 if (sn.attachedPart is Part sp &&
-                    sp.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide sf &&
-                    !sf.shapeLock &&
+                    sp.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide sf2 &&
+                    !sf2.shapeLock &&
                     sp.FindModelComponent<MeshFilter>("model") is MeshFilter mf)
                 {
                     var nodePos = sn.position;
@@ -822,31 +829,31 @@ namespace Keramzit
 
                     mf.transform.Rotate(0, ra, 0);
 
-                    sf.meshPos = mf.transform.localPosition;
-                    sf.meshRot = mf.transform.localRotation;
-                    sf.numSegs = numSegs;
-                    sf.numSideParts = numSideParts;
-                    sf.baseRad = baseRad;
-                    sf.maxRad = maxRad;
-                    sf.cylStart = cylStart;
-                    sf.cylEnd = cylEnd;
-                    sf.topRad = topRad;
-                    sf.inlineHeight = topY;
-                    sf.sideThickness = sideThickness;
-                    sf.baseCurveStartX = baseCurveStartX;
-                    sf.baseCurveStartY = baseCurveStartY;
-                    sf.baseCurveEndX = baseCurveEndX;
-                    sf.baseCurveEndY = baseCurveEndY;
-                    sf.baseConeSegments = baseConeSegments;
-                    sf.noseCurveStartX = noseCurveStartX;
-                    sf.noseCurveStartY = noseCurveStartY;
-                    sf.noseCurveEndX = noseCurveEndX;
-                    sf.noseCurveEndY = noseCurveEndY;
-                    sf.noseConeSegments = noseConeSegments;
-                    sf.noseHeightRatio = noseHeightRatio;
-                    sf.density = density;
+                    sf2.meshPos = mf.transform.localPosition;
+                    sf2.meshRot = mf.transform.localRotation;
+                    sf2.numSegs = numSegs;
+                    sf2.numSideParts = numSideParts;
+                    sf2.baseRad = baseRad;
+                    sf2.maxRad = maxRad;
+                    sf2.cylStart = cylStart;
+                    sf2.cylEnd = cylEnd;
+                    sf2.topRad = topRad;
+                    sf2.inlineHeight = topY;
+                    sf2.sideThickness = sideThickness;
+                    sf2.baseCurveStartX = baseCurveStartX;
+                    sf2.baseCurveStartY = baseCurveStartY;
+                    sf2.baseCurveEndX = baseCurveEndX;
+                    sf2.baseCurveEndY = baseCurveEndY;
+                    sf2.baseConeSegments = baseConeSegments;
+                    sf2.noseCurveStartX = noseCurveStartX;
+                    sf2.noseCurveStartY = noseCurveStartY;
+                    sf2.noseCurveEndX = noseCurveEndX;
+                    sf2.noseCurveEndY = noseCurveEndY;
+                    sf2.noseConeSegments = noseConeSegments;
+                    sf2.noseHeightRatio = noseHeightRatio;
+                    sf2.density = density;
 
-                    sf.rebuildMesh();
+                    sf2.rebuildMesh();
                 }
             }
 
