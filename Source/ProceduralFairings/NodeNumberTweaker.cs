@@ -35,6 +35,7 @@ namespace Keramzit
         [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Interstage Nodes", groupName = PFUtils.PAWGroup)]
         [UI_Toggle(disabledText = "Off", enabledText = "On")]
         public bool showInterstageNodes = true;
+        public int NodeSize => Math.Max(0, Mathf.RoundToInt(radius / radiusStepLarge) - 1);
 
         protected float oldRadius = -1000;
         public override string GetInfo() => $"Max Nodes: {maxNumber}";
@@ -63,20 +64,23 @@ namespace Keramzit
 
             uiNumNodes = numNodes;
             numNodesBefore = numNodes;
-            ShowHideInterstageNodes();
         }
 
         public override void OnStartFinished(StartState state)
         {
             base.OnStartFinished(state);
+            ShowHideInterstageNodes();
             AddRemoveNodes();
             UpdateNodePositions(false);
+            if (HighLogic.LoadedSceneIsEditor)
+                StartCoroutine(EditorChangeDetector());
         }
 
-        private void Update()
+        private System.Collections.IEnumerator EditorChangeDetector()
         {
-            if (HighLogic.LoadedSceneIsEditor)
+            while (HighLogic.LoadedSceneIsEditor)
             {
+                yield return new WaitForFixedUpdate();
                 if (radius != oldRadius)
                     OnRadiusChanged(Fields[nameof(radius)], oldRadius);
 
@@ -201,9 +205,6 @@ namespace Keramzit
 
         private void UpdateNodePositions(bool pushAttachments)
         {
-            float d = Mathf.Sin (Mathf.PI / numNodes) * radius * 2;
-            int size = Mathf.RoundToInt (d / (radiusStepLarge * 2));
-
             for (int i = 1; i <= numNodes; ++i)
             {
                 if (findNode(i) is AttachNode node)
@@ -217,7 +218,7 @@ namespace Keramzit
                     //node.originalOrientation = node.orientation = new Vector3(node.position.x, 0, node.position.z).normalized; ;
 
                     if (shouldResizeNodes)
-                        node.size = size;
+                        node.size = NodeSize;
 
                     if (pushAttachments)
                         PFUtils.updateAttachedPartPos(node, part, oldPosWorld);
