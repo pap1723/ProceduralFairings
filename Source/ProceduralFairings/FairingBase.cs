@@ -73,12 +73,13 @@ namespace Keramzit
 
                 DestroyAllLineRenderers ();
                 DestroyOutline();
-                BuildFairingOutline(outlineSlices, outlineColor, outlineWidth);
+                InitializeFairingOutline(outlineSlices, outlineColor, outlineWidth);
 
                 SetUIChangedCallBacks();
                 SetUIFieldVisibility();
                 SetUIFieldLimits();
                 GameEvents.onPartAttach.Add(OnPartAttach);
+                GameEvents.onPartRemove.Add(OnPartRemove);
                 StartCoroutine(EditorChangeDetector());
             }
             else
@@ -96,6 +97,7 @@ namespace Keramzit
         public void OnDestroy()
         {
             GameEvents.onPartAttach.Remove(OnPartAttach);
+            GameEvents.onPartRemove.Remove(OnPartRemove);
             GameEvents.onVesselWasModified.Remove(OnVesselModified);
 
             if (line)
@@ -115,6 +117,12 @@ namespace Keramzit
                 if (needShapeUpdate) recalcShape();
                 needShapeUpdate = false;
             }
+        }
+
+        private System.Collections.IEnumerator DisplayFairingOutline()
+        {
+            yield return new WaitForFixedUpdate();
+            SetFairingOutlineEnabled(!HasTopOrSideNode());
         }
 
         void SetUIChangedCallBacks()
@@ -180,6 +188,11 @@ namespace Keramzit
             // On loading any craft, the sideFairing knows its shape already.
             // Thus only need to do this when our attachment state will change.
             needShapeUpdate = HighLogic.LoadedSceneIsEditor;
+        }
+
+        void OnPartRemove(GameEvents.HostTargetAction<Part, Part> action)
+        {
+            StartCoroutine(DisplayFairingOutline());
         }
 
         void OnVesselModified(Vessel v)
@@ -338,7 +351,7 @@ namespace Keramzit
         #endregion
 
         #region Fairing Shapes
-        private void BuildFairingOutline(int slices, Vector4 color, float width)
+        private void InitializeFairingOutline(int slices, Vector4 color, float width)
         {
             for (int i = 0; i < slices; ++i)
             {
@@ -497,6 +510,56 @@ namespace Keramzit
             return null;
         }
 
+        private void SetFairingOutlineEnabled(bool enabled)
+        {
+            foreach (LineRenderer lr in outline)
+                lr.enabled = enabled;
+        }
+
+        private void BuildFairingOutline(Vector3[] shape)
+        {
+            foreach (LineRenderer lr in outline)
+            {
+                lr.positionCount = shape.Length;
+                for (int i = 0; i < shape.Length; ++i)
+                {
+                    lr.SetPosition(i, new Vector3(shape[i].x, shape[i].y));
+                }
+            }
+        }
+
+        private bool HasTopOrSideNode()
+        {
+            var adapter = part.GetComponent<ProceduralFairingAdapter>();
+            if (!adapter && scanPayload() is PayloadScan scan && scan.targets.Count > 0)
+                return true;
+            if (HasNodeComponent<ProceduralFairingSide>(part.FindAttachNodes("connect")) is AttachNode sideNode)
+                return true;
+            return false;
+        }
+
+        private void FillProfileOutline(PayloadScan scan)
+        {
+            if (line is LineRenderer)
+            {
+                line.positionCount = scan.profile.Count * 2 + 2;
+                float prevRad = 0;
+                int hi = 0;
+                for (int i = 0; i < scan.profile.Count; i++)
+                {
+                    var r = scan.profile[i];
+
+                    line.SetPosition(hi * 2, new Vector3(prevRad, hi * verticalStep + scan.ofs, 0));
+                    line.SetPosition(hi * 2 + 1, new Vector3(r, hi * verticalStep + scan.ofs, 0));
+
+                    hi++; prevRad = r;
+                }
+
+                line.SetPosition(hi * 2, new Vector3(prevRad, hi * verticalStep + scan.ofs, 0));
+                line.SetPosition(hi * 2 + 1, new Vector3(0, hi * verticalStep + scan.ofs, 0));
+            }
+        }
+
         public void recalcShape ()
         {
             var scan = scanPayload ();
@@ -507,39 +570,20 @@ namespace Keramzit
             float topRad = 0;
 
             AttachNode topSideNode = null;
-
             bool isInline = false;
 
-            var adapter = part.GetComponent<ProceduralFairingAdapter>();
-
-            if (adapter)
+            if (part.GetComponent<ProceduralFairingAdapter>() is ProceduralFairingAdapter adapter)
             {
                 isInline = true;
-
-                topY = adapter.height + adapter.extraHeight;
-
-                if (topY < scan.ofs)
-                {
-                    topY = scan.ofs;
-                }
-
+                topY = Mathf.Max(scan.ofs, adapter.height + adapter.extraHeight);
                 topRad = adapter.topRadius;
             }
             else if (scan.targets.Count > 0)
             {
                 isInline = true;
-
                 var topBase = scan.targets [0].GetComponent<ProceduralFairingBase>();
-
-                topY = scan.w2l.MultiplyPoint3x4 (topBase.part.transform.position).y;
-
-                if (topY < scan.ofs)
-                {
-                    topY = scan.ofs;
-                }
-
+                topY = Mathf.Max(scan.ofs, scan.w2l.MultiplyPoint3x4(topBase.part.transform.position).y);
                 topSideNode = HasNodeComponent<ProceduralFairingSide>(topBase.part.FindAttachNodes ("connect"));
-
                 topRad = topBase.baseSize * 0.5f;
             }
 
@@ -551,31 +595,9 @@ namespace Keramzit
             }
 
             //  Fill profile outline (for debugging).
-
-            if (line)
-            {
-                line.positionCount = scan.profile.Count * 2 + 2;
-
-                float prevRad = 0;
-
-                int hi = 0;
-
-                for (int i = 0; i < scan.profile.Count; i++)
-                {
-                    var r = scan.profile [i];
-
-                    line.SetPosition (hi * 2, new Vector3 (prevRad, hi * verticalStep + scan.ofs, 0));
-                    line.SetPosition (hi * 2 + 1, new Vector3 (r, hi * verticalStep + scan.ofs, 0));
-
-                    hi++; prevRad = r;
-                }
-
-                line.SetPosition (hi * 2, new Vector3 (prevRad, hi * verticalStep + scan.ofs, 0));
-                line.SetPosition (hi * 2 + 1, new Vector3 (0, hi * verticalStep + scan.ofs, 0));
-            }
+            FillProfileOutline(scan);
 
             //  Check for attached side parts.
-
             var attached = part.FindAttachNodes ("connect");
             var sideNode = HasNodeComponent<ProceduralFairingSide>(attached);
 
@@ -789,25 +811,8 @@ namespace Keramzit
             Vector3[] shape = isInline ? buildInlineFairingShape(baseRad, maxRad, topRad, cylStart, cylEnd, topY, baseConeShape, baseConeSegments, vertMapping, mappingScale.y) :
                                         buildFairingShape(baseRad, maxRad, cylStart, cylEnd, noseHeightRatio, baseConeShape, noseConeShape, baseConeSegments, noseConeSegments, vertMapping, mappingScale.y);
 
-            if (sideNode == null && topSideNode == null)
-            {
-                //  No side parts - fill fairing outlines.
-                foreach (LineRenderer lr in outline)
-                {
-                    lr.positionCount = shape.Length;
-                    for (int i = 0; i < shape.Length; ++i)
-                    {
-                        lr.SetPosition(i, new Vector3(shape[i].x, shape[i].y));
-                    }
-                }
-            }
-            else
-            {
-                foreach (LineRenderer lr in outline)
-                {
-                    lr.positionCount = 0;
-                }
-            }
+            BuildFairingOutline(shape);
+            SetFairingOutlineEnabled(sideNode == null && topSideNode == null);
 
             //  Rebuild the side parts.
 
