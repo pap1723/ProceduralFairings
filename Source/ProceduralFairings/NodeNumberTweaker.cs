@@ -112,10 +112,11 @@ namespace Keramzit
             }
         }
 
-        public void SetRadius(float rad)
+        public void SetRadius(float rad, bool pushAttachments)
         {
             radius = rad;
-            OnRadiusChanged(Fields[nameof(radius)], oldRadius);
+            UpdateNodePositions(pushAttachments);
+            oldRadius = radius;
         }
 
         string nodeName(int i) => $"{nodePrefix}{i:d2}";

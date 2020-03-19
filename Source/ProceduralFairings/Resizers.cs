@@ -54,11 +54,18 @@ namespace Keramzit
 
             updateNodeSize(size);
             resizePart(size, false);
+            oldSize = size;
         }
 
         private void OnSizeChanged(BaseField f, object obj)
         {
-            resizePart(size, true);
+            if (size != oldSize)
+            {
+                resizePart(size, true);
+                if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
+                    fbase.UpdateShape();
+            }
+            oldSize = size;
         }
 
         public void ConfigureTechLimits()
@@ -136,8 +143,6 @@ namespace Keramzit
 
         public virtual void resizePart (float scale, bool pushAttachments)
         {
-            oldSize = size;
-
             part.mass = totalMass = ((specificMass.x * scale + specificMass.y) * scale + specificMass.z) * scale + specificMass.w;
 
             massDisplay = PFUtils.formatMass (totalMass);
@@ -213,7 +218,7 @@ namespace Keramzit
                 }
 
             if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt)
-                nnt.SetRadius(size / 2);
+                nnt.SetRadius(size / 2, pushAttachments);
 
             if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
             {
@@ -244,7 +249,7 @@ namespace Keramzit
 
             if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt)
             {
-                nnt.SetRadius(Math.Min(nnt.radius, size / 2));
+                nnt.SetRadius(Math.Min(nnt.radius, size / 2), pushAttachments);
                 (nnt.Fields[nameof(nnt.radius)].uiControlEditor as UI_FloatEdit).maxValue = size / 2;
             }
         }

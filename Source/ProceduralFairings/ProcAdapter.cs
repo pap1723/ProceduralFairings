@@ -63,6 +63,7 @@ namespace Keramzit
 
         public override void OnStartFinished(StartState state)
         {
+            base.OnStartFinished(state);
             UpdateShape(false);
         }
 
@@ -256,7 +257,12 @@ namespace Keramzit
             }
         }
 
-        public void OnExtraHeightChanged(BaseField f, object obj) => UpdateShape(true);
+        public void OnExtraHeightChanged(BaseField f, object obj)
+        {
+            if (extraHeight != lastExtraHt)
+                UpdateShape(true);
+            lastExtraHt = extraHeight;
+        }
 
         void UpdateUIdecNoFairingsText(bool flag)
         {
@@ -268,7 +274,6 @@ namespace Keramzit
         public override void UpdateShape(bool pushAttachments)
         {
             base.UpdateShape(pushAttachments);
-            lastExtraHt = extraHeight;
 
             float sth = CalcSideThickness();
             float baseRadius = (baseSize / 2) - sth;
@@ -276,11 +281,11 @@ namespace Keramzit
 
             part.mass = totalMass = ((specificMass.x * scale + specificMass.y) * scale + specificMass.z) * scale + specificMass.w;
 
-            massDisplay = PFUtils.formatMass (totalMass);
-            costDisplay = PFUtils.formatCost (part.partInfo.cost + GetModuleCost (part.partInfo.cost, ModifierStagingSituation.CURRENT));
+            massDisplay = PFUtils.formatMass(totalMass);
+            costDisplay = PFUtils.formatCost(part.partInfo.cost + GetModuleCost(part.partInfo.cost, ModifierStagingSituation.CURRENT));
 
-            part.breakingForce = specificBreakingForce * Mathf.Pow (baseRadius, 2);
-            part.breakingTorque = specificBreakingTorque * Mathf.Pow (baseRadius, 2);
+            part.breakingForce = specificBreakingForce * Mathf.Pow(baseRadius, 2);
+            part.breakingTorque = specificBreakingTorque * Mathf.Pow(baseRadius, 2);
 
             if (part.FindModelTransform("model") is Transform model)
                 model.localScale = Vector3.one * scale;
@@ -290,13 +295,13 @@ namespace Keramzit
             part.rescaleFactor = scale;
 
             if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt)
-                nnt.SetRadius(baseSize / 2);
+                nnt.SetRadius(baseSize / 2, pushAttachments);
 
             if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
             {
                 fbase.baseSize = baseRadius * 2;
                 fbase.sideThickness = sth;
-                fbase.recalcShape();
+                fbase.UpdateShape();
             }
         }
 
