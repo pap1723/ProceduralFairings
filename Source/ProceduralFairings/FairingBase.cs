@@ -4,6 +4,7 @@
 //  Licensed under CC-BY-4.0 terms: https://creativecommons.org/licenses/by/4.0/legalcode
 //  ==================================================
 
+using ProceduralFairings;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -57,11 +58,13 @@ namespace Keramzit
         LineRenderer line;
         readonly List<LineRenderer> outline = new List<LineRenderer>();
         readonly List<ConfigurableJoint> joints = new List<ConfigurableJoint>();
+        public DragCubeUpdater dragCubeUpdater;
 
         public override string GetInfo() => "Attach side fairings and they will be shaped for your attached payload.\nRemember to enable the decoupler if you need one.";
 
         public override void OnStart (StartState state)
         {
+            dragCubeUpdater = new DragCubeUpdater(part);
             if (!HighLogic.LoadedSceneIsEditor && !HighLogic.LoadedSceneIsFlight) return;
 
             PFUtils.hideDragStuff(part);
@@ -91,7 +94,9 @@ namespace Keramzit
         public override void OnStartFinished(StartState state) 
         {
             base.OnStartFinished(state);
-            PFUtils.updateDragCube(part, 1);
+            // Don't update drag cubes before a part has been attached in the editor.
+            if (!HighLogic.LoadedSceneIsEditor)
+                dragCubeUpdater.Update();
         }
 
         public void OnDestroy()
@@ -114,7 +119,8 @@ namespace Keramzit
             while (HighLogic.LoadedSceneIsEditor)
             {
                 yield return new WaitForFixedUpdate();
-                if (needShapeUpdate) recalcShape();
+                if (needShapeUpdate)
+                    UpdateShape();
                 needShapeUpdate = false;
             }
         }
@@ -129,6 +135,7 @@ namespace Keramzit
         {
             Fields[nameof(autoShape)].uiControlEditor.onFieldChanged += OnChangeAutoshapeUI;
             Fields[nameof(autoShape)].uiControlEditor.onSymmetryFieldChanged += OnChangeAutoshapeUI;
+            
             Fields[nameof(extraRadius)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
             Fields[nameof(extraRadius)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
             Fields[nameof(manualMaxSize)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
@@ -149,13 +156,33 @@ namespace Keramzit
         void OnChangeAutoshapeUI(BaseField bf, object obj)
         {
             SetUIFieldVisibility();
-            recalcShape();
+            UpdateShape();
         }
 
-        void OnChangeShapeUI(BaseField bf, object obj)
+        void OnChangeShapeUI(BaseField bf, object obj) => UpdateShape();
+
+        public void UpdateShape()
         {
             SetUIFieldLimits();
             recalcShape();
+            dragCubeUpdater.Update();
+            UpdateFairingSideDragCubes();
+        }
+
+        public void UpdateFairingSideDragCubes()
+        {
+            if (part.FindAttachNodes("connect") is AttachNode[] attached)
+            {
+                foreach (AttachNode sn in attached)
+                {
+                    if (sn.attachedPart is Part sp &&
+                        sp.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide sf &&
+                        sf.dragCubeUpdater is DragCubeUpdater)
+                    {
+                        sf.dragCubeUpdater.Update();
+                    }
+                }
+            }
         }
 
         private void SetUIFieldLimits()
@@ -831,7 +858,6 @@ namespace Keramzit
                     mf.transform.rotation = part.transform.rotation;
 
                     float ra = Mathf.Atan2(-nodePos.z, nodePos.x) * Mathf.Rad2Deg;
-
                     mf.transform.Rotate(0, ra, 0);
 
                     sf2.meshPos = mf.transform.localPosition;

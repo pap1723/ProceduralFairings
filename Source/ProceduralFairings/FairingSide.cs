@@ -4,6 +4,7 @@
 //  Licensed under CC-BY-4.0 terms: https://creativecommons.org/licenses/by/4.0/legalcode
 //  ==================================================
 
+using ProceduralFairings;
 using System;
 using UnityEngine;
 
@@ -23,6 +24,8 @@ namespace Keramzit
         [KSPField] public float costPerTonne = 2000;
         [KSPField] public float specificBreakingForce = 2000;
         [KSPField] public float specificBreakingTorque = 2000;
+
+        public DragCubeUpdater dragCubeUpdater;
 
         public float DefaultBaseConeSegments => part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().baseConeSegments;
         public float DefaultNoseConeSegments => part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().noseConeSegments;
@@ -137,6 +140,8 @@ namespace Keramzit
 
         public override void OnStart (StartState state)
         {
+            dragCubeUpdater = new DragCubeUpdater(part);
+
             // Delay rebuilding the mesh in the Editor, so the original model comes out of the part picker
             if (HighLogic.LoadedSceneIsEditor)
                 part.OnEditorAttach += OnPartEditorAttach;
@@ -149,10 +154,15 @@ namespace Keramzit
 
         public override void OnStartFinished(StartState state)
         {
-            PFUtils.updateDragCube(part, 1);
+            if (!HighLogic.LoadedSceneIsEditor)
+                dragCubeUpdater.Update();
         }
 
-        private void OnPartEditorAttach() => rebuildMesh();
+        private void OnPartEditorAttach()
+        {
+            rebuildMesh();
+            dragCubeUpdater.Update();
+        }
 
         void SetUICallbacks()
         {
@@ -217,7 +227,10 @@ namespace Keramzit
             if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
                 fbase.needShapeUpdate = true;
             else
+            {
                 rebuildMesh();
+                dragCubeUpdater.Update();
+            }
         }
 
         private void ResetBaseCurve(bool fromPrefab = false)
@@ -348,7 +361,7 @@ namespace Keramzit
             mf.transform.localPosition = meshPos;
             mf.transform.localRotation = meshRot;
 
-            updateNodeSize ();
+            updateNodeSize();
 
             //  Build the fairing shape line.
 

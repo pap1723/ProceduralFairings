@@ -98,17 +98,20 @@ namespace Keramzit
             if (node is AttachNode && part is Part && 
                 node.attachedPart is Part ap && ap.FindAttachNodeByPart(part) is AttachNode an)
             {
+                if (HighLogic.LoadedSceneIsFlight)
+                    Debug.LogWarning($"[PF] PF Utilities Attempting to Update a Part Position during Flight Scene!\n{StackTraceUtility.ExtractStackTrace()}");
+
                 var dp = part.transform.TransformPoint(node.position) - oldPosWorld;
 
                 if (ap == part.parent)
                 {
                     while (ap.parent) ap = ap.parent;
-                    ap.transform.position += dp;
-                    part.transform.position -= dp;
+                    ap.transform.Translate(dp, Space.World);
+                    part.transform.Translate(-dp, Space.World);
                 }
                 else
                 {
-                    ap.transform.position += dp;
+                    ap.transform.Translate(dp, Space.World);
                 }
             }
         }
@@ -136,14 +139,14 @@ namespace Keramzit
             return FARinstalled;
         }
 
-        public static void updateDragCube (Part part, float areaScale)
+        public static void updateDragCube(Part part, float areaScale = 1)
         {
             if (isFarInstalled())
             {
                 Debug.Log ("[PF]: Calling FAR to update voxels...");
                 part.SendMessage ("GeometryPartModuleRebuildMeshData");
             }
-            if (HighLogic.LoadedSceneIsFlight)
+            //            if (HighLogic.LoadedSceneIsFlight)
             {
                 enableRenderer(part.FindModelTransform("dragOnly"), true);
                 var dragCube = DragCubeSystem.Instance.RenderProceduralDragCube(part);
