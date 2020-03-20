@@ -69,11 +69,16 @@ namespace Keramzit
         public override void OnStartFinished(StartState state)
         {
             base.OnStartFinished(state);
-            ShowHideInterstageNodes();
-            AddRemoveNodes();
-            UpdateNodePositions(false);
+            ResetNodePositions(false);
             if (HighLogic.LoadedSceneIsEditor)
                 StartCoroutine(EditorChangeDetector());
+        }
+
+        public void ResetNodePositions(bool pushAttachments)
+        {
+            ShowHideInterstageNodes();
+            AddRemoveNodes();
+            UpdateNodePositions(pushAttachments);
         }
 
         private System.Collections.IEnumerator EditorChangeDetector()

@@ -83,12 +83,33 @@ namespace Keramzit
                 SetUIFieldLimits();
                 GameEvents.onPartAttach.Add(OnPartAttach);
                 GameEvents.onPartRemove.Add(OnPartRemove);
+                GameEvents.onVariantApplied.Add(OnPartVariantApplied);
+
                 StartCoroutine(EditorChangeDetector());
             }
             else
             {
                 GameEvents.onVesselWasModified.Add(OnVesselModified);
             }
+        }
+
+        private void OnPartVariantApplied(Part p, PartVariant variant) 
+        {
+            if (p == part)
+            {
+                Debug.Log($"[PF] FairingBase for {part}: OnPartVariant {variant} applied.");
+                StartCoroutine(OnPartVariantAppliedCR());
+            }
+        }
+        private System.Collections.IEnumerator OnPartVariantAppliedCR()
+        {
+            yield return new WaitForFixedUpdate();
+            if (part.GetComponent<KzPartResizer>() is KzPartResizer resizer)
+                resizer.resizePart(resizer.size, false);
+            if (part.GetComponent<ProceduralAdapterBase>() is ProceduralAdapterBase procBase)
+                procBase.UpdateShape(false);
+            if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt)
+                nnt.ResetNodePositions(false);
         }
 
         public override void OnStartFinished(StartState state) 
@@ -103,6 +124,7 @@ namespace Keramzit
         {
             GameEvents.onPartAttach.Remove(OnPartAttach);
             GameEvents.onPartRemove.Remove(OnPartRemove);
+            GameEvents.onVariantApplied.Remove(OnPartVariantApplied);
             GameEvents.onVesselWasModified.Remove(OnVesselModified);
 
             if (line)
@@ -164,7 +186,11 @@ namespace Keramzit
         public void UpdateShape()
         {
             SetUIFieldLimits();
-            recalcShape();
+            // ProcAdapter will call this in OnStartFinished.
+            // It updates our baseSize, and calls here, probably expecting us to tell the
+            // resizer, and maybe we should, and also update our DragCubes?
+            if (!HighLogic.LoadedSceneIsFlight)
+                recalcShape();
             dragCubeUpdater.Update();
             UpdateFairingSideDragCubes();
         }
