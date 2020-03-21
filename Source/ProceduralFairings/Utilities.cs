@@ -116,6 +116,36 @@ namespace Keramzit
             }
         }
 
+        public static void UpdateNode(Part part, AttachNode node, Vector3 newPosition, int size, bool pushAttachments)
+        {
+            if (node is AttachNode)
+            {
+                Vector3 oldPosWorld = part.transform.TransformPoint(node.position);
+                node.position = newPosition;
+                node.size = size;
+
+                if (pushAttachments)
+                    PFUtils.updateAttachedPartPos(node, part, oldPosWorld);
+
+                if (node.attachedPart is Part)
+                    PFUtils.InformAttachedPartNodePositionChanged(node);
+            }
+        }
+
+        public static void InformAttachedPartNodePositionChanged(AttachNode node)
+        {
+            if (node is AttachNode && node.attachedPart is Part)
+            {
+                BaseEventDetails baseEventDatum = new BaseEventDetails(0);
+                baseEventDatum.Set("location", node.position);
+                baseEventDatum.Set("orientation", node.orientation);
+                baseEventDatum.Set("secondaryAxis", node.secondaryAxis);
+                baseEventDatum.Set("node", node);
+
+                node.attachedPart.SendEvent("OnPartAttachNodePositionChanged", baseEventDatum);
+            }
+        }
+
         public static string formatMass(float mass) => (mass < 0.01) ? $"{mass * 1e3:N3}kg" : $"{mass:N3}t";
         public static string formatCost(float cost) => $"{cost:N0}";
 

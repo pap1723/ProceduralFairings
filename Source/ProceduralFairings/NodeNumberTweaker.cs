@@ -35,14 +35,16 @@ namespace Keramzit
         [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Interstage Nodes", groupName = PFUtils.PAWGroup)]
         [UI_Toggle(disabledText = "Off", enabledText = "On")]
         public bool showInterstageNodes = true;
-        public int NodeSize => Math.Max(0, Mathf.RoundToInt(radius / radiusStepLarge) - 1);
+        public int NodeSize => part.FindModuleImplementing<ProceduralFairingBase>() is ProceduralFairingBase fb ? 
+                                    fb.FairingBaseNodeSize : 
+                                    Math.Max(0, Mathf.RoundToInt(radius / radiusStepLarge) - 1);
 
         protected float oldRadius = -1000;
         public override string GetInfo() => $"Max Nodes: {maxNumber}";
 
         public override void OnStart(StartState state)
         {
-            base.OnStart (state);
+            base.OnStart(state);
 
             (Fields[nameof(radius)].uiControlEditor as UI_FloatEdit).incrementLarge = radiusStepLarge;
             (Fields[nameof(radius)].uiControlEditor as UI_FloatEdit).incrementSmall = radiusStepSmall;
@@ -146,7 +148,7 @@ namespace Keramzit
             {
                 if (findNode(i) is AttachNode node && node.attachedPart is Part)
                 {
-                    EditorScreenMessager.showMessage ("Please detach any fairing parts before changing the number of nodes!", 1);
+                    EditorScreenMessager.showMessage("Please detach any fairing parts before changing the number of nodes!", 1);
                     return true;
                 }
             }
@@ -170,9 +172,9 @@ namespace Keramzit
         {
             AttachNode exemplar = GetExemplarNode();
             float y = exemplar is AttachNode ? exemplar.position.y : 0;
-            int nodeSize = exemplar is AttachNode ? exemplar.size : 0;
+            int nodeSize = exemplar is AttachNode ? exemplar.size : NodeSize;
             Vector3 dir = exemplar is AttachNode ? exemplar.orientation : Vector3.up;
-            Vector3 pos = new Vector3(0, y, 0);
+            Vector3 pos = new Vector3(radius, y, 0);
             int i;
             part.stackSymmetry = numNodes - 1;
 
@@ -216,18 +218,9 @@ namespace Keramzit
                 if (findNode(i) is AttachNode node)
                 {
                     float a = Mathf.PI * 2 * (i - 1) / numNodes;
-                    Vector3 oldPosWorld = part.transform.TransformPoint(node.position);
-
-                    node.position.x = Mathf.Cos(a) * radius;
-                    node.position.z = Mathf.Sin(a) * radius;
-                    node.originalPosition = node.position;
-                    //node.originalOrientation = node.orientation = new Vector3(node.position.x, 0, node.position.z).normalized; ;
-
-                    if (shouldResizeNodes)
-                        node.size = NodeSize;
-
-                    if (pushAttachments)
-                        PFUtils.updateAttachedPartPos(node, part, oldPosWorld);
+                    Vector3 newPos = new Vector3(Mathf.Cos(a) * radius, node.position.y, Mathf.Sin(a) * radius);
+                    PFUtils.UpdateNode(part, node, newPos, NodeSize, pushAttachments);
+                    node.originalPosition = new Vector3(Mathf.Cos(a), node.position.y, Mathf.Sin(a));
                 }
             }
         }
