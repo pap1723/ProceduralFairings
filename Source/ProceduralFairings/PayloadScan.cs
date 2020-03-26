@@ -49,7 +49,7 @@ namespace Keramzit
                 if (p.GetComponent<LaunchClamp>() == null &&
                     !(p == prevPart.parent && prevPart.srfAttachNode.attachedPart == p))
                 {
-                    if (p.GetComponent<ProceduralFairingBase>() != null && p.GetComponent<ProceduralFairingAdapter>() == null)
+                    if (p.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fBase && fBase.Mode == ProceduralFairingBase.BaseMode.Payload)
                     {
                         if (p.FindAttachNode("top") is AttachNode node && node.attachedPart == prevPart)
                         {

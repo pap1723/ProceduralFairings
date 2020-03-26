@@ -14,6 +14,7 @@ namespace Keramzit
     public class ProceduralFairingBase : PartModule, IPartCostModifier, IPartMassModifier
     {
         public const float MaxCylinderDimension = 50;
+        protected const float verticalStep = 0.1f;
         public enum BaseMode { Payload, Adapter }
 
         [KSPField(isPersistant = true)] public string mode = Enum.GetName(typeof(BaseMode), BaseMode.Payload);
@@ -22,16 +23,10 @@ namespace Keramzit
         [KSPField] public string minSizeName = "PROCFAIRINGS_MINDIAMETER";
         [KSPField] public string maxSizeName = "PROCFAIRINGS_MAXDIAMETER";
 
-        [KSPField] public float outlineWidth = 0.05f;
-        [KSPField] public int outlineSlices = 12;
-        [KSPField] public Vector4 outlineColor = new Vector4(0, 0, 0.2f, 1);
-        protected const float verticalStep = 0.1f;
-
         [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Base Size", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
         [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
         public float baseSize = 1.25f;
 
-        // From ProcAdapter fields
         [KSPField(isPersistant = true, guiName = "Top", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup)]
         [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
         public float topSize = 1.25f;
@@ -47,9 +42,6 @@ namespace Keramzit
         [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Extra radius", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
         [UI_FloatRange(minValue = -1, maxValue = 2, stepIncrement = 0.01f)]
         public float extraRadius;
-
-        [KSPField] public int circleSegments = 24;
-        [KSPField] public float sideThickness = 0.05f;
 
         [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Fairing Auto-struts", groupName = PFUtils.PAWGroup)]
         [UI_Toggle(disabledText = "Off", enabledText = "On")]
@@ -77,11 +69,11 @@ namespace Keramzit
         [KSPField] public float heightStepLarge = 1.0f;
         [KSPField] public float heightStepSmall = 0.1f;
 
-        public bool needShapeUpdate = true;
-        LineRenderer line;
-        readonly List<LineRenderer> outline = new List<LineRenderer>();
-        readonly List<ConfigurableJoint> joints = new List<ConfigurableJoint>();
-        public DragCubeUpdater dragCubeUpdater;
+        [KSPField] public int circleSegments = 24;
+        [KSPField] public float sideThickness = 0.05f;
+        [KSPField] public float outlineWidth = 0.05f;
+        [KSPField] public int outlineSlices = 12;
+        [KSPField] public Vector4 outlineColor = new Vector4(0, 0, 0.2f, 1);
 
         [KSPField] public Vector4 specificMass = new Vector4(0.005f, 0.011f, 0.009f, 0f);
         [KSPField] public float costPerTonne = 2000;
@@ -90,54 +82,366 @@ namespace Keramzit
         //[KSPField] public float specificBreakingForce = 1536;     // Payload base
         //[KSPField] public float specificBreakingTorque = 1536;    // Payload base
 
-        public KzNodeNumberTweaker NodeNumberTweaker = null;
-        public ProceduralFairingAdapter Adapter = null;
-        public float CalcSideThickness() => Mode == BaseMode.Adapter ? Mathf.Min(sideThickness * Mathf.Max(baseSize, topSize), 0.25f * Mathf.Min(baseSize, topSize)) :
-                                            baseSize * Mathf.Min(sideThickness, 0.25f);
-
         [KSPField(guiActiveEditor = true, guiName = "Mass", groupName = PFUtils.PAWGroup)]
         public string massDisplay;
 
         [KSPField(guiActiveEditor = true, guiName = "Cost", groupName = PFUtils.PAWGroup)]
         public string costDisplay;
 
-        public int TopNodeSize => Mathf.RoundToInt((Mode == BaseMode.Adapter ? topSize : baseSize) / diameterStepLarge);
-        public int BottomNodeSize => Mathf.RoundToInt(baseSize / diameterStepLarge);
-        public int InterstageNodeSize => Math.Max(1, TopNodeSize - 1);
-        public int FairingBaseNodeSize => Math.Max(1, TopNodeSize - 1);
+        [KSPField(isPersistant = true, guiName = "Decouple When Fairing Gone:", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [UI_Toggle(disabledText = "No", enabledText = "Yes")]
+        public bool autoDecoupleTopNode;
+
+        [KSPField] public string topNodeName = "top1";
+
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Interstage Nodes", groupName = PFUtils.PAWGroup)]
+        [UI_Toggle(disabledText = "Off", enabledText = "On")]
+        public bool showInterstageNodes = true;
 
         float totalMass = 0;
+
+        public bool needShapeUpdate = true;
+        LineRenderer line;
+        readonly List<LineRenderer> outline = new List<LineRenderer>();
+        readonly List<ConfigurableJoint> joints = new List<ConfigurableJoint>();
+        public DragCubeUpdater dragCubeUpdater;
+
         float lastBaseSize = -1000;
         float lastTopSize = -1000;
         float lastHeight = -1000;
         float lastExtraHt = -1000;
+
         [KSPField] public bool requestLegacyLoad;
-        
+
+        public int TopNodeSize => Mathf.RoundToInt((Mode == BaseMode.Adapter ? topSize : baseSize) / diameterStepLarge);
+        public int BottomNodeSize => Mathf.RoundToInt(baseSize / diameterStepLarge);
+        public int InterstageNodeSize => Math.Max(1, TopNodeSize - 1);
+        public int FairingBaseNodeSize => Math.Max(1, TopNodeSize - 1);
+        public float CalcSideThickness() => Mode == BaseMode.Adapter ? Mathf.Min(sideThickness * Mathf.Max(baseSize, topSize), 0.25f * Mathf.Min(baseSize, topSize)) :
+                                            baseSize * Mathf.Min(sideThickness, 0.25f);
+
+        public ModifierChangeWhen GetModuleCostChangeWhen() => ModifierChangeWhen.FIXED;
+        public ModifierChangeWhen GetModuleMassChangeWhen() => ModifierChangeWhen.FIXED;
+        public float GetModuleCost(float defcost, ModifierStagingSituation sit) => (totalMass * costPerTonne) - defcost;
+        public float GetModuleMass(float defmass, ModifierStagingSituation sit) => totalMass - defmass;
+
+        public override string GetInfo() => "Attach side fairings and they will be shaped for your attached payload.\nRemember to enable the decoupler if you need one.";
+
+        #region KSP Common Callbacks
+
         public override void OnLoad(ConfigNode node)
         {
             base.OnLoad(node);
             requestLegacyLoad = !(node.HasValue(nameof(mode)));
         }
-        
-        private void LegacyLoad()
-        {
-            mode = part.FindModuleImplementing<ProceduralFairingAdapter>() is ProceduralFairingAdapter ?
-                    Enum.GetName(typeof(BaseMode), BaseMode.Adapter) :
-                    Enum.GetName(typeof(BaseMode), BaseMode.Payload);
 
-            if (Mode == BaseMode.Adapter)
+        public override void OnStart (StartState state)
+        {
+            dragCubeUpdater = new DragCubeUpdater(part);
+
+            if (requestLegacyLoad)
+                LegacyLoad();
+
+            if (!HighLogic.LoadedSceneIsEditor && !HighLogic.LoadedSceneIsFlight) return;
+
+            PFUtils.hideDragStuff(part);
+            if (HighLogic.LoadedSceneIsEditor)
             {
-                baseSize = Adapter.baseSize;
-                topSize = Adapter.topSize;
-                height = Adapter.height;
-            } else if (Mode == BaseMode.Payload)
-            {
+                ConfigureTechLimits();
+                if (line)
+                    line.transform.Rotate (0, 90, 0);
+
+                DestroyAllLineRenderers ();
+                DestroyOutline();
+                InitializeFairingOutline(outlineSlices, outlineColor, outlineWidth);
+
+                SetUIChangedCallBacks();
+                SetUIFieldVisibility();
+                SetUIFieldLimits();
+                GameEvents.onPartAttach.Add(OnPartAttach);
+                GameEvents.onPartRemove.Add(OnPartRemove);
+                GameEvents.onVariantApplied.Add(OnPartVariantApplied);
+
+                StartCoroutine(EditorChangeDetector());
             }
-            Debug.Log($"[PF] LegacyLoad() for {part}, Mode: {Mode}");
+            else
+            {
+                GameEvents.onVesselWasModified.Add(OnVesselModified);
+            }
+            lastBaseSize = baseSize;
+            lastExtraHt = extraHeight;
+            lastTopSize = topSize;
+            lastHeight = height;
         }
 
+        public override void OnStartFinished(StartState state) 
+        {
+            base.OnStartFinished(state);
+            // Don't update drag cubes before a part has been attached in the editor.
+            UpdatePartProperties();
+            UpdateNodes(false);
+            if (!HighLogic.LoadedSceneIsEditor)
+                dragCubeUpdater.Update();
+            if (HighLogic.LoadedSceneIsEditor)
+                ShowHideInterstageNodes();
+            if (Mode == BaseMode.Adapter)
+                StartCoroutine(HandleAutomaticDecoupling());
+        }
 
-        // Extracted from UpdateShape() of ProcAdapter and Resizer
+        public void OnDestroy()
+        {
+            GameEvents.onPartAttach.Remove(OnPartAttach);
+            GameEvents.onPartRemove.Remove(OnPartRemove);
+            GameEvents.onVariantApplied.Remove(OnPartVariantApplied);
+            GameEvents.onVesselWasModified.Remove(OnVesselModified);
+
+            if (line)
+            {
+                Destroy(line.gameObject);
+                line = null;
+            }
+            DestroyAllLineRenderers();
+            DestroyOutline();
+        }
+        #endregion
+
+        #region Event Callbacks
+        private void OnPartVariantApplied(Part p, PartVariant variant)
+        {
+            if (p == part)
+                StartCoroutine(OnPartVariantAppliedCR());
+        }
+
+        private System.Collections.IEnumerator OnPartVariantAppliedCR()
+        {
+            yield return new WaitForFixedUpdate();
+            if (HighLogic.LoadedSceneIsFlight)
+                UpdateNodes(false);
+            else
+                UpdateShape(false);
+            // PartVariants will only push nodes based on the delta in node.originalPosition
+            // If we keep originalPosition the same, we won't need to re-adjust parts.
+            // NodeNumberTweaker will NOT like that.
+            // But UpdateShape() will regenerate the side fairings and move their mesh?
+        }
+
+        public void OnPartPack() => removeJoints();
+
+        public void onShieldingDisabled(List<Part> shieldedParts) => removeJoints();
+
+        public void onShieldingEnabled(List<Part> shieldedParts)
+        {
+            if (HighLogic.LoadedSceneIsFlight && autoStrutSides)
+                StartCoroutine(createAutoStruts(shieldedParts));
+        }
+
+        void OnPartAttach(GameEvents.HostTargetAction<Part, Part> action)
+        {
+            // On loading any craft, the sideFairing knows its shape already.
+            // Thus only need to do this when our attachment state will change.
+            needShapeUpdate = HighLogic.LoadedSceneIsEditor;
+        }
+
+        void OnPartRemove(GameEvents.HostTargetAction<Part, Part> action)
+        {
+            needShapeUpdate = HighLogic.LoadedSceneIsEditor;
+            StartCoroutine(DisplayFairingOutline());
+        }
+
+        void OnVesselModified(Vessel v)
+        {
+            if (vessel == v && !part.packed && Mode == BaseMode.Adapter)
+            {
+                if (GetTopPart() == null)
+                    removeJoints();
+                StartCoroutine(HandleAutomaticDecoupling());
+            }
+        }
+        #endregion
+
+        #region UI
+
+        void SetUIChangedCallBacks()
+        {
+            Fields[nameof(autoShape)].uiControlEditor.onFieldChanged += OnChangeAutoshapeUI;
+            Fields[nameof(autoShape)].uiControlEditor.onSymmetryFieldChanged += OnChangeAutoshapeUI;
+            
+            Fields[nameof(extraRadius)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(extraRadius)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualMaxSize)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualMaxSize)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualCylStart)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualCylStart)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualCylEnd)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualCylEnd)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+
+            Fields[nameof(baseSize)].uiControlEditor.onFieldChanged += OnBaseSizeChanged;
+            Fields[nameof(baseSize)].uiControlEditor.onSymmetryFieldChanged += OnBaseSizeChanged;
+
+            Fields[nameof(topSize)].uiControlEditor.onFieldChanged += OnTopSizeChanged;
+            Fields[nameof(topSize)].uiControlEditor.onSymmetryFieldChanged += OnTopSizeChanged;
+
+            Fields[nameof(height)].uiControlEditor.onFieldChanged += OnHeightChanged;
+            Fields[nameof(height)].uiControlEditor.onSymmetryFieldChanged += OnHeightChanged;
+
+            Fields[nameof(extraHeight)].uiControlEditor.onFieldChanged += OnExtraHeightChanged;
+            Fields[nameof(extraHeight)].uiControlEditor.onSymmetryFieldChanged += OnExtraHeightChanged;
+
+            Fields[nameof(showInterstageNodes)].uiControlEditor.onFieldChanged += OnNodeVisibilityChanged;
+            Fields[nameof(showInterstageNodes)].uiControlEditor.onSymmetryFieldChanged += OnNodeVisibilityChanged;
+        }
+
+        void SetUIFieldVisibility()
+        {
+            Fields[nameof(manualMaxSize)].guiActiveEditor = !autoShape;
+            Fields[nameof(manualCylStart)].guiActiveEditor = !autoShape;
+            Fields[nameof(manualCylEnd)].guiActiveEditor = !autoShape;
+            Fields[nameof(topSize)].guiActiveEditor = Mode == BaseMode.Adapter;
+            Fields[nameof(height)].guiActiveEditor = Mode == BaseMode.Adapter;
+            Fields[nameof(extraHeight)].guiActiveEditor = Mode == BaseMode.Adapter;
+            Fields[nameof(autoDecoupleTopNode)].guiActive = Mode == BaseMode.Adapter;
+            Fields[nameof(autoDecoupleTopNode)].guiActiveEditor = Mode == BaseMode.Adapter;
+            Fields[nameof(showInterstageNodes)].guiActiveEditor = part.FindAttachNodes("interstage") != null;
+        }
+
+        private void SetUIFieldLimits()
+        {
+            UI_FloatEdit start = Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit;
+            UI_FloatEdit end = Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit;
+            start.maxValue = Mathf.Min(manualCylEnd, MaxCylinderDimension - 0.1f);
+            end.minValue = Mathf.Min(manualCylStart, MaxCylinderDimension - 0.1f);
+            bool refresh = manualCylStart > start.maxValue || manualCylEnd < end.minValue;
+            manualCylStart = Mathf.Min(manualCylStart, start.maxValue);
+            manualCylEnd = Mathf.Max(manualCylEnd, end.minValue);
+            if (refresh)
+                MonoUtilities.RefreshPartContextWindow(part);
+        }
+
+        public void OnBaseSizeChanged(BaseField f, object obj)
+        {
+            if (baseSize != lastBaseSize)
+                UpdateShape(true);
+            lastBaseSize = baseSize;
+        }
+
+        public void OnTopSizeChanged(BaseField f, object obj)
+        {
+            if (topSize != lastTopSize)
+                UpdateShape(true);
+            lastTopSize = topSize;
+        }
+
+        public void OnHeightChanged(BaseField f, object obj)
+        {
+            if (height != lastHeight)
+                UpdateShape(true);
+            lastHeight = height;
+        }
+
+        public void OnExtraHeightChanged(BaseField f, object obj)
+        {
+            if (extraHeight != lastExtraHt)
+                UpdateShape(true);
+            lastExtraHt = extraHeight;
+        }
+
+        void OnChangeAutoshapeUI(BaseField bf, object obj)
+        {
+            SetUIFieldVisibility();
+            UpdateShape(true);
+        }
+
+        void OnChangeShapeUI(BaseField bf, object obj) => UpdateShape(true);
+        public void OnNodeVisibilityChanged(BaseField f, object obj) => ShowHideInterstageNodes();
+
+        public void ConfigureTechLimits()
+        {
+            if (PFUtils.canCheckTech())
+            {
+                float minSize = PFUtils.getTechMinValue(minSizeName, 0.25f);
+                float maxSize = PFUtils.getTechMaxValue(maxSizeName, 30);
+
+                PFUtils.setFieldRange(Fields[nameof(baseSize)], minSize, maxSize);
+                (Fields[nameof(baseSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
+                (Fields[nameof(baseSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
+
+                PFUtils.setFieldRange(Fields[nameof(manualMaxSize)], minSize, maxSize * 2);
+                (Fields[nameof(manualMaxSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
+                (Fields[nameof(manualMaxSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
+
+                (Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+                (Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
+                (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+                (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
+
+                (Fields[nameof(extraHeight)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+                (Fields[nameof(extraHeight)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
+
+                PFUtils.setFieldRange(Fields[nameof(topSize)], minSize, maxSize);
+
+                (Fields[nameof(topSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
+                (Fields[nameof(topSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
+
+                (Fields[nameof(height)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+                (Fields[nameof(height)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
+            }
+            else if (HighLogic.LoadedSceneIsEditor && ResearchAndDevelopment.Instance == null)
+            {
+                Debug.LogError($"[PF] ConfigureTechLimits() in Editor but R&D not ready!");
+            }
+        }
+
+        private System.Collections.IEnumerator EditorChangeDetector()
+        {
+            while (HighLogic.LoadedSceneIsEditor)
+            {
+                yield return new WaitForFixedUpdate();
+                if (needShapeUpdate)
+                    UpdateShape(true);
+                needShapeUpdate = false;
+
+                if (baseSize != lastBaseSize)
+                    Fields[nameof(baseSize)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(baseSize)], lastBaseSize);
+                if (topSize != lastTopSize)
+                    Fields[nameof(topSize)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(topSize)], lastTopSize);
+                if (height != lastHeight)
+                    Fields[nameof(height)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(height)], lastHeight);
+                if (extraHeight != lastExtraHt)
+                    Fields[nameof(extraHeight)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(extraHeight)], lastExtraHt);
+            }
+        }
+
+        #endregion
+
+        #region Shape Updaters
+
+        public void UpdateShape(bool pushAttachments)
+        {
+            SetUIFieldLimits();
+            UpdatePartProperties();
+            UpdateNodes(pushAttachments);
+            if (!HighLogic.LoadedSceneIsFlight)
+                recalcShape();
+            dragCubeUpdater.Update();
+            UpdateFairingSideDragCubes();
+        }
+
+        public void UpdateFairingSideDragCubes()
+        {
+            if (part.FindAttachNodes("connect") is AttachNode[] attached)
+            {
+                foreach (AttachNode sn in attached)
+                {
+                    if (sn.attachedPart is Part sp &&
+                        sp.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide sf &&
+                        sf.dragCubeUpdater is DragCubeUpdater)
+                    {
+                        sf.dragCubeUpdater.Update();
+                    }
+                }
+            }
+        }
+
         public void UpdatePartProperties()
         {
             float baseDiameterAdj = baseSize - (2 * CalcSideThickness());
@@ -177,13 +481,13 @@ namespace Keramzit
             }
             if (Mode == BaseMode.Adapter)
             {
-                if (part.FindAttachNode(Adapter.topNodeName) is AttachNode topNode)
+                if (part.FindAttachNode(topNodeName) is AttachNode topNode)
                 {
                     Vector3 newPos = new Vector3(topNode.position.x, height, topNode.position.z);
                     UpdateNode(topNode, newPos, TopNodeSize, pushAttachments);
                 }
                 else
-                    Debug.LogError($"[PF]: No '{Adapter.topNodeName}' node in part {part}!");
+                    Debug.LogError($"[PF]: No '{topNodeName}' node in part {part}!");
             }
 
             // Adopt Resize interstage handling
@@ -196,10 +500,11 @@ namespace Keramzit
                 {
                     UpdateNode(node, (node.originalPosition * nodeScale) + (Vector3.up * bottomHeight), InterstageNodeSize, pushAttachments);
                 }
+                ShowHideInterstageNodes();
             }
 
             // Let the NumberNodeTweaker push the connect nodes.
-            if (NodeNumberTweaker)
+            if (part.FindModuleImplementing<KzNodeNumberTweaker>() is KzNodeNumberTweaker NodeNumberTweaker)
                 NodeNumberTweaker.SetRadius(baseRadiusAdj + CalcSideThickness(), pushAttachments);
 
             // NNT won't know to adjust position.y, so fix-up.
@@ -218,316 +523,76 @@ namespace Keramzit
 
         public void UpdateNode(AttachNode node, Vector3 newPosition, int size, bool pushAttachments) => PFUtils.UpdateNode(part, node, newPosition, size, pushAttachments);
 
-        public ModifierChangeWhen GetModuleCostChangeWhen() => ModifierChangeWhen.FIXED;
-        public ModifierChangeWhen GetModuleMassChangeWhen() => ModifierChangeWhen.FIXED;
-        public float GetModuleCost(float defcost, ModifierStagingSituation sit) => (totalMass * costPerTonne) - defcost;
-        public float GetModuleMass(float defmass, ModifierStagingSituation sit) => totalMass - defmass;
+        #endregion
 
-        public override string GetInfo() => "Attach side fairings and they will be shaped for your attached payload.\nRemember to enable the decoupler if you need one.";
-
-        public override void OnStart (StartState state)
+        private void LegacyLoad()
         {
-            dragCubeUpdater = new DragCubeUpdater(part);
-            NodeNumberTweaker = part.FindModuleImplementing<KzNodeNumberTweaker>();
-            Adapter = part.FindModuleImplementing<ProceduralFairingAdapter>();
+            ProceduralFairingAdapter adapter = part.FindModuleImplementing<ProceduralFairingAdapter>();
+            mode = adapter ? Enum.GetName(typeof(BaseMode), BaseMode.Adapter) : Enum.GetName(typeof(BaseMode), BaseMode.Payload);
 
-            if (requestLegacyLoad)
-                LegacyLoad();
-
-            if (!HighLogic.LoadedSceneIsEditor && !HighLogic.LoadedSceneIsFlight) return;
-
-            PFUtils.hideDragStuff(part);
-            if (HighLogic.LoadedSceneIsEditor)
-            {
-                ConfigureTechLimits();
-                if (line)
-                    line.transform.Rotate (0, 90, 0);
-
-                DestroyAllLineRenderers ();
-                DestroyOutline();
-                InitializeFairingOutline(outlineSlices, outlineColor, outlineWidth);
-
-                SetUIChangedCallBacks();
-                SetUIFieldVisibility();
-                SetUIFieldLimits();
-                GameEvents.onPartAttach.Add(OnPartAttach);
-                GameEvents.onPartRemove.Add(OnPartRemove);
-                GameEvents.onVariantApplied.Add(OnPartVariantApplied);
-
-                StartCoroutine(EditorChangeDetector());
-            }
-            else
-            {
-                GameEvents.onVesselWasModified.Add(OnVesselModified);
-            }
-            lastBaseSize = baseSize;
-            lastExtraHt = extraHeight;
-            lastTopSize = topSize;
-            lastHeight = height;
-        }
-
-        private void OnPartVariantApplied(Part p, PartVariant variant) 
-        {
-            if (p == part)
-                StartCoroutine(OnPartVariantAppliedCR());
-        }
-
-        private System.Collections.IEnumerator OnPartVariantAppliedCR()
-        {
-            yield return new WaitForFixedUpdate();
-            if (HighLogic.LoadedSceneIsFlight)
-                UpdateNodes(false);
-            else
-                UpdateShape(false);
-            // PartVariants will only push nodes based on the delta in node.originalPosition
-            // If we keep originalPosition the same, we won't need to re-adjust parts.
-            // NodeNumberTweaker will NOT like that.
-            // But UpdateShape() will regenerate the side fairings and move their mesh?
-        }
-
-        public override void OnStartFinished(StartState state) 
-        {
-            base.OnStartFinished(state);
-            // Don't update drag cubes before a part has been attached in the editor.
-            UpdatePartProperties();
-            UpdateNodes(false);
-            if (!HighLogic.LoadedSceneIsEditor)
-                dragCubeUpdater.Update();
             if (Mode == BaseMode.Adapter)
-                StartCoroutine(Adapter.HandleAutomaticDecoupling());
-        }
-
-        public void OnDestroy()
-        {
-            GameEvents.onPartAttach.Remove(OnPartAttach);
-            GameEvents.onPartRemove.Remove(OnPartRemove);
-            GameEvents.onVariantApplied.Remove(OnPartVariantApplied);
-            GameEvents.onVesselWasModified.Remove(OnVesselModified);
-
-            if (line)
             {
-                Destroy(line.gameObject);
-                line = null;
+                baseSize = adapter.baseSize;
+                topSize = adapter.topSize;
+                height = adapter.height;
+                extraHeight = adapter.extraHeight;
+                autoDecoupleTopNode = adapter.topNodeDecouplesWhenFairingsGone;
+                topNodeName = adapter.topNodeName;
             }
-            DestroyAllLineRenderers();
-            DestroyOutline();
-        }
-
-        private System.Collections.IEnumerator EditorChangeDetector()
-        {
-            while (HighLogic.LoadedSceneIsEditor)
+            else if (Mode == BaseMode.Payload)
             {
-                yield return new WaitForFixedUpdate();
-                if (needShapeUpdate)
-                    UpdateShape(true);
-                needShapeUpdate = false;
-
-                if (baseSize != lastBaseSize)
-                    Fields[nameof(baseSize)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(baseSize)], lastBaseSize);
-                if (topSize != lastTopSize)
-                    Fields[nameof(topSize)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(topSize)], lastTopSize);
-                if (height != lastHeight)
-                    Fields[nameof(height)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(height)], lastHeight);
-                if (extraHeight != lastExtraHt)
-                    Fields[nameof(extraHeight)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(extraHeight)], lastExtraHt);
             }
+            Debug.Log($"[PF] LegacyLoad() for {part}, Mode: {Mode}");
         }
 
-        private System.Collections.IEnumerator DisplayFairingOutline()
+        public System.Collections.IEnumerator HandleAutomaticDecoupling()
         {
+            //  We used to remove the engine fairing (if there is any) from topmost node, but lately that's been causing NREs.  
+            //  Since KSP gives us this option nativley, let's just use KSP to do that if we want.
+            if (!HighLogic.LoadedSceneIsFlight) yield break;
             yield return new WaitForFixedUpdate();
-            SetFairingOutlineEnabled(!HasTopOrSideNode());
-        }
 
-        void SetUIChangedCallBacks()
-        {
-            Fields[nameof(autoShape)].uiControlEditor.onFieldChanged += OnChangeAutoshapeUI;
-            Fields[nameof(autoShape)].uiControlEditor.onSymmetryFieldChanged += OnChangeAutoshapeUI;
-            
-            Fields[nameof(extraRadius)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
-            Fields[nameof(extraRadius)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
-            Fields[nameof(manualMaxSize)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
-            Fields[nameof(manualMaxSize)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
-            Fields[nameof(manualCylStart)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
-            Fields[nameof(manualCylStart)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
-            Fields[nameof(manualCylEnd)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
-            Fields[nameof(manualCylEnd)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
-
-            Fields[nameof(baseSize)].uiControlEditor.onFieldChanged += OnBaseSizeChanged;
-            Fields[nameof(baseSize)].uiControlEditor.onSymmetryFieldChanged += OnBaseSizeChanged;
-
-            Fields[nameof(topSize)].uiControlEditor.onFieldChanged += OnTopSizeChanged;
-            Fields[nameof(topSize)].uiControlEditor.onSymmetryFieldChanged += OnTopSizeChanged;
-
-            Fields[nameof(height)].uiControlEditor.onFieldChanged += OnHeightChanged;
-            Fields[nameof(height)].uiControlEditor.onSymmetryFieldChanged += OnHeightChanged;
-
-            Fields[nameof(extraHeight)].uiControlEditor.onFieldChanged += OnExtraHeightChanged;
-            Fields[nameof(extraHeight)].uiControlEditor.onSymmetryFieldChanged += OnExtraHeightChanged;
-        }
-
-        public void OnBaseSizeChanged(BaseField f, object obj)
-        {
-            if (baseSize != lastBaseSize)
-                UpdateShape(true);
-            lastBaseSize = baseSize;
-        }
-
-        public void OnTopSizeChanged(BaseField f, object obj)
-        {
-            if (topSize != lastTopSize)
-                UpdateShape(true);
-            lastTopSize = topSize;
-        }
-
-        public void OnHeightChanged(BaseField f, object obj)
-        {
-            if (height != lastHeight)
-                UpdateShape(true);
-            lastHeight = height;
-        }
-
-        public void OnExtraHeightChanged(BaseField f, object obj)
-        {
-            if (extraHeight != lastExtraHt)
-                UpdateShape(true);
-            lastExtraHt = extraHeight;
-        }
-
-        void SetUIFieldVisibility()
-        {
-            Fields[nameof(manualMaxSize)].guiActiveEditor = !autoShape;
-            Fields[nameof(manualCylStart)].guiActiveEditor = !autoShape;
-            Fields[nameof(manualCylEnd)].guiActiveEditor = !autoShape;
-            Fields[nameof(topSize)].guiActiveEditor = Mode == BaseMode.Adapter;
-            Fields[nameof(height)].guiActiveEditor = Mode == BaseMode.Adapter;
-            Fields[nameof(extraHeight)].guiActiveEditor = Mode == BaseMode.Adapter;
-        }
-
-        void OnChangeAutoshapeUI(BaseField bf, object obj)
-        {
-            SetUIFieldVisibility();
-            UpdateShape(true);
-        }
-
-        void OnChangeShapeUI(BaseField bf, object obj) => UpdateShape(true);
-
-        public void UpdateShape(bool pushAttachments)
-        {
-            SetUIFieldLimits();
-            UpdatePartProperties();
-            UpdateNodes(pushAttachments);
-            if (!HighLogic.LoadedSceneIsFlight)
-                recalcShape();
-            dragCubeUpdater.Update();
-            UpdateFairingSideDragCubes();
-        }
-
-        public void UpdateFairingSideDragCubes()
-        {
-            if (part.FindAttachNodes("connect") is AttachNode[] attached)
+            if (TopNodePartPresent && autoDecoupleTopNode && !FairingPresent)
             {
-                foreach (AttachNode sn in attached)
+                if (part.FindModuleImplementing<ModuleDecouple>() is ModuleDecouple item)
                 {
-                    if (sn.attachedPart is Part sp &&
-                        sp.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide sf &&
-                        sf.dragCubeUpdater is DragCubeUpdater)
-                    {
-                        sf.dragCubeUpdater.Update();
-                    }
+                    RemoveTopPartJoints();
+                    item.Decouple();
+                }
+                else
+                {
+                    Debug.LogError($"[PF]: Cannot decouple from top part! {this}");
                 }
             }
+            Fields[nameof(autoDecoupleTopNode)].guiActive = Mode == BaseMode.Adapter && TopNodePartPresent;
         }
 
-        private void SetUIFieldLimits()
+        #region Node / Attached Part Utilities
+
+        public Part GetBottomPart() => (part.FindAttachNode("bottom") is AttachNode node) ? node.attachedPart : null;
+        public Part GetTopPart() => (part.FindAttachNode(topNodeName) is AttachNode node) ? node.attachedPart : null;
+        public bool TopNodePartPresent => GetTopPart() is Part;
+        public bool FairingPresent
         {
-            UI_FloatEdit start = Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit;
-            UI_FloatEdit end = Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit;
-            start.maxValue = Mathf.Min(manualCylEnd, MaxCylinderDimension - 0.1f);
-            end.minValue = Mathf.Min(manualCylStart, MaxCylinderDimension - 0.1f);
-            bool refresh = manualCylStart > start.maxValue || manualCylEnd < end.minValue;
-            manualCylStart = Mathf.Min(manualCylStart, start.maxValue);
-            manualCylEnd = Mathf.Max(manualCylEnd, end.minValue);
-            if (refresh) 
-                MonoUtilities.RefreshPartContextWindow(part);
-        }
-
-        public void OnPartPack() => removeJoints();
-
-        public void onShieldingDisabled(List<Part> shieldedParts) => removeJoints();
-
-        public void onShieldingEnabled(List<Part> shieldedParts)
-        {
-            if (HighLogic.LoadedSceneIsFlight && autoStrutSides)
-                StartCoroutine(createAutoStruts(shieldedParts));
-        }
-
-        void OnPartAttach(GameEvents.HostTargetAction<Part, Part> action)
-        {
-            // On loading any craft, the sideFairing knows its shape already.
-            // Thus only need to do this when our attachment state will change.
-            needShapeUpdate = HighLogic.LoadedSceneIsEditor;
-        }
-
-        void OnPartRemove(GameEvents.HostTargetAction<Part, Part> action)
-        {
-            needShapeUpdate = HighLogic.LoadedSceneIsEditor;
-            StartCoroutine(DisplayFairingOutline());
-        }
-
-        void OnVesselModified(Vessel v)
-        {
-            if (vessel == v && !part.packed && Mode == BaseMode.Adapter && Adapter)
+            get
             {
-                if (Adapter.getTopPart() == null)
-                    removeJoints();
-                StartCoroutine(Adapter.HandleAutomaticDecoupling());
+                if (part.FindAttachNodes("connect") is AttachNode[] nodes)
+                {
+                    foreach (AttachNode n in nodes)
+                    {
+                        if (n.attachedPart is Part p && p.FindModuleImplementing<ProceduralFairingSide>() is ProceduralFairingSide)
+                            return true;
+                    }
+                }
+                return false;
             }
         }
-
-        public void ConfigureTechLimits()
-        {
-            if (PFUtils.canCheckTech())
-            {
-                float minSize = PFUtils.getTechMinValue(minSizeName, 0.25f);
-                float maxSize = PFUtils.getTechMaxValue(maxSizeName, 30);
-
-                PFUtils.setFieldRange(Fields[nameof(baseSize)], minSize, maxSize);
-                (Fields[nameof(baseSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
-                (Fields[nameof(baseSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
-
-                PFUtils.setFieldRange(Fields[nameof(manualMaxSize)], minSize, maxSize * 2);
-                (Fields[nameof(manualMaxSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
-                (Fields[nameof(manualMaxSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
-
-                (Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
-                (Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
-                (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
-                (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
-
-                (Fields[nameof(extraHeight)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
-                (Fields[nameof(extraHeight)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
-
-                PFUtils.setFieldRange(Fields[nameof(topSize)], minSize, maxSize);
-
-                (Fields[nameof(topSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
-                (Fields[nameof(topSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
-
-                (Fields[nameof(height)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
-                (Fields[nameof(height)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
-            }
-            else if (HighLogic.LoadedSceneIsEditor && ResearchAndDevelopment.Instance == null)
-            {
-                Debug.LogError($"[PF] ConfigureTechLimits() in Editor but R&D not ready!");
-            }
-        }
-
         private Part FindTopBasePart()
         {
             Part top = null;
-            if (Mode == BaseMode.Adapter && Adapter)
+            if (Mode == BaseMode.Adapter)
             {
-                top = Adapter.getTopPart();
+                top = GetTopPart();
             }
             else
             {
@@ -538,6 +603,31 @@ namespace Keramzit
             return top;
         }
 
+        private bool HasTopOrSideNode()
+        {
+            if (Mode == BaseMode.Payload && scanPayload() is PayloadScan scan && scan.targets.Count > 0)
+                return true;
+            if (HasNodeComponent<ProceduralFairingSide>(part.FindAttachNodes("connect")) is AttachNode)
+                return true;
+            return false;
+        }
+
+        void SetNodeVisibility(AttachNode node, bool show) => node.position.x = show ? 0 : 10000;
+
+        public void ShowHideInterstageNodes()
+        {
+            if (part.FindAttachNodes("interstage") is AttachNode[] nodes)
+            {
+                foreach (AttachNode node in nodes)
+                {
+                    if (node.attachedPart == null)
+                        SetNodeVisibility(node, showInterstageNodes);
+                }
+            }
+        }
+
+        #endregion
+
         #region Struts and Joints
 
         public void removeJoints()
@@ -545,6 +635,19 @@ namespace Keramzit
             foreach (ConfigurableJoint joint in joints)
                 Destroy(joint);
             joints.Clear();
+        }
+
+        void RemoveTopPartJoints()
+        {
+            if (GetTopPart() is Part topPart && GetBottomPart() is Part bottomPart &&
+                topPart.gameObject.GetComponents<ConfigurableJoint>() is ConfigurableJoint[] components)
+            {
+                foreach (ConfigurableJoint configurableJoint in components)
+                {
+                    if (configurableJoint.connectedBody == bottomPart.Rigidbody)
+                        Destroy(configurableJoint);
+                }
+            }
         }
 
         IEnumerator<YieldInstruction> createAutoStruts(List<Part> shieldedParts)
@@ -644,7 +747,7 @@ namespace Keramzit
 
         #endregion
 
-        #region Fairing Shapes
+        #region Fairing Shapes and Outline
         private void InitializeFairingOutline(int slices, Vector4 color, float width)
         {
             for (int i = 0; i < slices; ++i)
@@ -745,7 +848,31 @@ namespace Keramzit
             return shape;
         }
 
+        private System.Collections.IEnumerator DisplayFairingOutline()
+        {
+            yield return new WaitForFixedUpdate();
+            SetFairingOutlineEnabled(!HasTopOrSideNode());
+        }
+
+        private void SetFairingOutlineEnabled(bool enabled)
+        {
+            foreach (LineRenderer lr in outline)
+                lr.enabled = enabled;
+        }
+
+        private void BuildFairingOutline(Vector3[] shape)
+        {
+            foreach (LineRenderer lr in outline)
+            {
+                lr.positionCount = shape.Length;
+                for (int i = 0; i < shape.Length; ++i)
+                {
+                    lr.SetPosition(i, new Vector3(shape[i].x, shape[i].y));
+                }
+            }
+        }
         #endregion
+
 
         PayloadScan scanPayload ()
         {
@@ -802,34 +929,6 @@ namespace Keramzit
                 }
             }
             return null;
-        }
-
-        private void SetFairingOutlineEnabled(bool enabled)
-        {
-            foreach (LineRenderer lr in outline)
-                lr.enabled = enabled;
-        }
-
-        private void BuildFairingOutline(Vector3[] shape)
-        {
-            foreach (LineRenderer lr in outline)
-            {
-                lr.positionCount = shape.Length;
-                for (int i = 0; i < shape.Length; ++i)
-                {
-                    lr.SetPosition(i, new Vector3(shape[i].x, shape[i].y));
-                }
-            }
-        }
-
-        private bool HasTopOrSideNode()
-        {
-            var adapter = part.GetComponent<ProceduralFairingAdapter>();
-            if (!adapter && scanPayload() is PayloadScan scan && scan.targets.Count > 0)
-                return true;
-            if (HasNodeComponent<ProceduralFairingSide>(part.FindAttachNodes("connect")) is AttachNode sideNode)
-                return true;
-            return false;
         }
 
         private void FillProfileOutline(PayloadScan scan)

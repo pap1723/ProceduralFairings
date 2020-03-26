@@ -15,6 +15,16 @@ namespace Keramzit
         //        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
         //        public float size = 1.25f;
         //public virtual void resizePart(float scale, bool pushAttachments) { }
+        public override void OnStartFinished(StartState state)
+        {
+            base.OnStartFinished(state);
+            StartCoroutine(DestroyMe());
+        }
+        private System.Collections.IEnumerator DestroyMe()
+        {
+            yield return new WaitForSeconds(1);
+            Destroy(this);
+        }
     }
 
     public class KzThrustPlateResizer : PartModule
