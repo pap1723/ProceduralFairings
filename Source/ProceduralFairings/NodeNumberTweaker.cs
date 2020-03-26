@@ -32,9 +32,6 @@ namespace Keramzit
 
         [KSPField] public bool shouldResizeNodes = true;
 
-        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Interstage Nodes", groupName = PFUtils.PAWGroup)]
-        [UI_Toggle(disabledText = "Off", enabledText = "On")]
-        public bool showInterstageNodes = true;
         public int NodeSize => part.FindModuleImplementing<ProceduralFairingBase>() is ProceduralFairingBase fb ? 
                                     fb.FairingBaseNodeSize : 
                                     Math.Max(0, Mathf.RoundToInt(radius / radiusStepLarge) - 1);
@@ -51,10 +48,6 @@ namespace Keramzit
             Fields[nameof(radius)].guiActiveEditor = shouldResizeNodes;
             Fields[nameof(radius)].uiControlEditor.onFieldChanged += OnRadiusChanged;
             Fields[nameof(radius)].uiControlEditor.onSymmetryFieldChanged += OnRadiusChanged;
-
-            Fields[nameof(showInterstageNodes)].guiActiveEditor = part.FindAttachNodes("interstage") != null;
-            Fields[nameof(showInterstageNodes)].uiControlEditor.onFieldChanged += OnNodeVisibilityChanged;
-            Fields[nameof(showInterstageNodes)].uiControlEditor.onSymmetryFieldChanged += OnNodeVisibilityChanged;
 
             //  Change the GUI text if there are no fairing attachment nodes.
             if (part.FindAttachNodes("connect") == null)
@@ -78,7 +71,6 @@ namespace Keramzit
 
         public void ResetNodePositions(bool pushAttachments)
         {
-            ShowHideInterstageNodes();
             AddRemoveNodes();
             UpdateNodePositions(pushAttachments);
         }
@@ -95,8 +87,6 @@ namespace Keramzit
                     OnNumNodesChanged(Fields[nameof(uiNumNodes)], numNodesBefore);
             }
         }
-
-        public void OnNodeVisibilityChanged(BaseField f, object obj) => ShowHideInterstageNodes();
 
         public void OnRadiusChanged(BaseField f, object obj)
         {
@@ -129,18 +119,6 @@ namespace Keramzit
         string nodeName(int i) => $"{nodePrefix}{i:d2}";
         AttachNode findNode(int i) => part.FindAttachNode(nodeName(i));
         void SetNodeVisibility(AttachNode node, bool show) => node.position.x = show ? 0 : 10000;
-
-        public void ShowHideInterstageNodes()
-        {
-            if (part.FindAttachNodes("interstage") is AttachNode[] nodes)
-            {
-                foreach (AttachNode node in nodes)
-                {
-                    if (node.attachedPart == null)
-                        SetNodeVisibility(node, showInterstageNodes);
-                }
-            }
-        }
 
         bool checkNodeAttachments()
         {
