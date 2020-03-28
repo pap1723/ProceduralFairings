@@ -82,6 +82,11 @@ namespace Keramzit
         //[KSPField] public float specificBreakingForce = 1536;     // Payload base
         //[KSPField] public float specificBreakingTorque = 1536;    // Payload base
 
+        [KSPField] public float decouplerCostMult = 1;              // Mult to costPerTonne when decoupler is enabled
+        [KSPField] public float decouplerCostBase = 0;              // Flat additional cost when decoupler is enabled
+        [KSPField] public float decouplerMassMult = 1;              // Mass multiplier
+        [KSPField] public float decouplerMassBase = 0;              // Flat additional mass (0.001 = 1kg)
+
         [KSPField(guiActiveEditor = true, guiName = "Mass", groupName = PFUtils.PAWGroup)]
         public string massDisplay;
 
@@ -98,18 +103,20 @@ namespace Keramzit
         [UI_Toggle(disabledText = "Off", enabledText = "On")]
         public bool showInterstageNodes = true;
 
-        float totalMass = 0;
+        float fairingBaseMass = 0;
 
         public bool needShapeUpdate = true;
         LineRenderer line;
         readonly List<LineRenderer> outline = new List<LineRenderer>();
         readonly List<ConfigurableJoint> joints = new List<ConfigurableJoint>();
         public DragCubeUpdater dragCubeUpdater;
+        public ModuleDecouple Decoupler;
 
         float lastBaseSize = -1000;
         float lastTopSize = -1000;
         float lastHeight = -1000;
         float lastExtraHt = -1000;
+        bool lastDecouplerStaged = false;
 
         [KSPField] public bool requestLegacyLoad;
 
@@ -122,9 +129,11 @@ namespace Keramzit
 
         public ModifierChangeWhen GetModuleCostChangeWhen() => ModifierChangeWhen.FIXED;
         public ModifierChangeWhen GetModuleMassChangeWhen() => ModifierChangeWhen.FIXED;
-        public float GetModuleCost(float defcost, ModifierStagingSituation sit) => (totalMass * costPerTonne) - defcost;
-        public float GetModuleMass(float defmass, ModifierStagingSituation sit) => totalMass - defmass;
-
+        public float GetModuleCost(float defcost, ModifierStagingSituation sit) => ApplyDecouplerCostModifier(fairingBaseMass * costPerTonne) - defcost;
+        public float GetModuleMass(float defmass, ModifierStagingSituation sit) => ApplyDecouplerMassModifier(fairingBaseMass) - defmass;
+        private float ApplyDecouplerCostModifier(float baseCost) => DecouplerEnabled ? (baseCost * decouplerCostMult) + decouplerCostBase : baseCost;
+        private float ApplyDecouplerMassModifier(float baseMass) => DecouplerEnabled ? (baseMass * decouplerMassMult) + decouplerMassBase : baseMass;
+        private bool DecouplerEnabled => part.FindModuleImplementing<ModuleDecouple>() is ModuleDecouple d && d.stagingEnabled;
         public override string GetInfo() => "Attach side fairings and they will be shaped for your attached payload.\nRemember to enable the decoupler if you need one.";
 
         #region KSP Common Callbacks
@@ -138,6 +147,7 @@ namespace Keramzit
         public override void OnStart (StartState state)
         {
             dragCubeUpdater = new DragCubeUpdater(part);
+            Decoupler = part.FindModuleImplementing<ModuleDecouple>();
 
             if (requestLegacyLoad)
                 LegacyLoad();
@@ -172,6 +182,7 @@ namespace Keramzit
             lastExtraHt = extraHeight;
             lastTopSize = topSize;
             lastHeight = height;
+            lastDecouplerStaged = (Decoupler && Decoupler.staged);
         }
 
         public override void OnStartFinished(StartState state) 
@@ -225,14 +236,14 @@ namespace Keramzit
             // But UpdateShape() will regenerate the side fairings and move their mesh?
         }
 
-        public void OnPartPack() => removeJoints();
+        public void OnPartPack() => RemoveJoints();
 
-        public void onShieldingDisabled(List<Part> shieldedParts) => removeJoints();
+        public void onShieldingDisabled(List<Part> shieldedParts) => RemoveJoints();
 
         public void onShieldingEnabled(List<Part> shieldedParts)
         {
             if (HighLogic.LoadedSceneIsFlight && autoStrutSides)
-                StartCoroutine(createAutoStruts(shieldedParts));
+                StartCoroutine(CreateAutoStruts());
         }
 
         void OnPartAttach(GameEvents.HostTargetAction<Part, Part> action)
@@ -253,7 +264,7 @@ namespace Keramzit
             if (vessel == v && !part.packed && Mode == BaseMode.Adapter)
             {
                 if (GetTopPart() == null)
-                    removeJoints();
+                    RemoveJoints();
                 StartCoroutine(HandleAutomaticDecoupling());
             }
         }
@@ -408,6 +419,11 @@ namespace Keramzit
                     Fields[nameof(height)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(height)], lastHeight);
                 if (extraHeight != lastExtraHt)
                     Fields[nameof(extraHeight)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(extraHeight)], lastExtraHt);
+                if (Decoupler && lastDecouplerStaged != Decoupler.stagingEnabled)
+                {
+                    UpdateMassAndCostDisplay();
+                    lastDecouplerStaged = Decoupler.stagingEnabled;
+                }
             }
         }
 
@@ -449,16 +465,21 @@ namespace Keramzit
 
             part.breakingForce = specificBreakingForce * Mathf.Pow(baseRadiusAdj, 2);
             part.breakingTorque = specificBreakingTorque * Mathf.Pow(baseRadiusAdj, 2);
-
-            part.mass = totalMass = (((((specificMass.x * baseDiameterAdj) + specificMass.y) * baseDiameterAdj) + specificMass.z) * baseDiameterAdj) + specificMass.w;
-            massDisplay = PFUtils.formatMass(totalMass);
-            costDisplay = PFUtils.formatCost(part.partInfo.cost + GetModuleCost(part.partInfo.cost, ModifierStagingSituation.CURRENT));
+            UpdateMassAndCostDisplay();
 
             if (part.FindModelTransform("model") is Transform model)
                 model.localScale = Vector3.one * baseDiameterAdj;
             else
                 Debug.LogError("[PF]: No 'model' transform found in part!", this);
             part.rescaleFactor = baseDiameterAdj;
+        }
+
+        public void UpdateMassAndCostDisplay()
+        {
+            float baseDiameterAdj = baseSize - (2 * CalcSideThickness());
+            fairingBaseMass = (((((specificMass.x * baseDiameterAdj) + specificMass.y) * baseDiameterAdj) + specificMass.z) * baseDiameterAdj) + specificMass.w;
+            massDisplay = PFUtils.formatMass(ApplyDecouplerMassModifier(fairingBaseMass));
+            costDisplay = PFUtils.formatCost(part.partInfo.cost + GetModuleCost(part.partInfo.cost, ModifierStagingSituation.CURRENT));
         }
 
         // Sub-functions of UpdateShape()
@@ -596,7 +617,7 @@ namespace Keramzit
             }
             else
             {
-                var scan = scanPayload();
+                var scan = ScanPayload();
                 if (scan.targets.Count > 0)
                     top = scan.targets[0];
             }
@@ -605,7 +626,7 @@ namespace Keramzit
 
         private bool HasTopOrSideNode()
         {
-            if (Mode == BaseMode.Payload && scanPayload() is PayloadScan scan && scan.targets.Count > 0)
+            if (Mode == BaseMode.Payload && ScanPayload() is PayloadScan scan && scan.targets.Count > 0)
                 return true;
             if (HasNodeComponent<ProceduralFairingSide>(part.FindAttachNodes("connect")) is AttachNode)
                 return true;
@@ -630,7 +651,7 @@ namespace Keramzit
 
         #region Struts and Joints
 
-        public void removeJoints()
+        private void RemoveJoints()
         {
             foreach (ConfigurableJoint joint in joints)
                 Destroy(joint);
@@ -650,7 +671,7 @@ namespace Keramzit
             }
         }
 
-        IEnumerator<YieldInstruction> createAutoStruts(List<Part> shieldedParts)
+        private IEnumerator<YieldInstruction> CreateAutoStruts()
         {
             while (!FlightGlobals.ready || vessel.packed || !vessel.loaded)
             {
@@ -665,15 +686,15 @@ namespace Keramzit
                     if (attached[i].attachedPart is Part p && p.Rigidbody &&
                         attached[i > 0 ? i - 1 : nnt.numNodes - 1].attachedPart is Part pp)
                     {
-                        addStrut(p, pp);
+                        AddStrut(p, pp);
                         if (topBasePart != null)
-                            addStrut(p, topBasePart);
+                            AddStrut(p, topBasePart);
                     }
                 }
             }
         }
 
-        ConfigurableJoint addStrut(Part p, Part pp)
+        private ConfigurableJoint AddStrut(Part p, Part pp)
         {
             if (p && p != pp && p.Rigidbody != pp.Rigidbody && pp.Rigidbody is Rigidbody rb &&
                 p.gameObject.AddComponent<ConfigurableJoint>() is ConfigurableJoint joint)
@@ -874,7 +895,7 @@ namespace Keramzit
         #endregion
 
 
-        PayloadScan scanPayload ()
+        private PayloadScan ScanPayload()
         {
             //  Scan the payload and build it's profile.
             var scan = new PayloadScan (part, verticalStep, extraRadius);
@@ -955,7 +976,7 @@ namespace Keramzit
 
         public void recalcShape ()
         {
-            var scan = scanPayload ();
+            var scan = ScanPayload ();
 
             //  Check for reversed bases (inline fairings).
 

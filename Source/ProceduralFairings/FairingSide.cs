@@ -31,7 +31,7 @@ namespace Keramzit
         public float DefaultNoseConeSegments => part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().noseConeSegments;
         public float DefaultNoseHeightRatio => part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().noseHeightRatio;
 
-        public float totalMass;
+        public float fairingMass;
 
         [KSPField(isPersistant = true)] public int numSegs = 12;
         [KSPField(isPersistant = true)] public int numSideParts = 2;
@@ -105,6 +105,11 @@ namespace Keramzit
         [UI_FloatRange(minValue = 0.01f, maxValue = 1.0f, stepIncrement = 0.01f)]
         public float density = 0.2f;
 
+        [KSPField] public float decouplerCostMult = 1;              // Mult to costPerTonne when decoupler is enabled
+        [KSPField] public float decouplerCostBase = 0;              // Flat additional cost when decoupler is enabled
+        [KSPField] public float decouplerMassMult = 1;              // Mass multiplier
+        [KSPField] public float decouplerMassBase = 0;              // Flat additional mass (0.001 = 1kg)
+
         [KSPField(guiActiveEditor = true, guiName = "Mass", groupName = PFUtils.PAWGroup)]
         public string massDisplay;
 
@@ -113,16 +118,20 @@ namespace Keramzit
 
         public ModifierChangeWhen GetModuleCostChangeWhen() => ModifierChangeWhen.FIXED;
         public ModifierChangeWhen GetModuleMassChangeWhen() => ModifierChangeWhen.FIXED;
-        public float GetModuleCost(float defcost, ModifierStagingSituation sit) => (totalMass * costPerTonne) - defcost;
-        public float GetModuleMass(float defmass, ModifierStagingSituation sit) => totalMass - defmass;
+        public float GetModuleCost(float defcost, ModifierStagingSituation sit) => ApplyDecouplerCostModifier(fairingMass * costPerTonne) - defcost;
+        public float GetModuleMass(float defmass, ModifierStagingSituation sit) => ApplyDecouplerMassModifier(fairingMass) - defmass;
+        private float ApplyDecouplerCostModifier(float baseCost) => DecouplerEnabled ? (baseCost * decouplerCostMult) + decouplerCostBase : baseCost;
+        private float ApplyDecouplerMassModifier(float baseMass) => DecouplerEnabled ? (baseMass * decouplerMassMult) + decouplerMassBase : baseMass;
+        private bool DecouplerEnabled => part.FindModuleImplementing<ProceduralFairingDecoupler>() is ProceduralFairingDecoupler d && d.fairingStaged;
         public override string GetInfo() => "Attach to a procedural fairing base to reshape. Right-click it to set it's parameters.";
+
 
         public void Start ()
         {
-            if (part.mass != totalMass)
+            if (part.mass != ApplyDecouplerMassModifier(fairingMass))
             {
-                Debug.LogError($"[PF] FairingSide Start(): Expected part mass {totalMass} but discovered {part.mass}!");
-                part.mass = totalMass;
+                Debug.LogError($"[PF] FairingSide Start(): Expected part mass {ApplyDecouplerMassModifier(fairingMass)} but discovered {part.mass}!");
+                part.mass = ApplyDecouplerMassModifier(fairingMass);
             }
         }
 
@@ -201,8 +210,15 @@ namespace Keramzit
             Fields[nameof(baseConeSegments)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
             Fields[nameof(noseConeSegments)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
             Fields[nameof(density)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+
+            if (part.FindModuleImplementing<ProceduralFairingDecoupler>() is ProceduralFairingDecoupler decoupler)
+            {
+                decoupler.Fields[nameof(decoupler.fairingStaged)].uiControlEditor.onFieldChanged += OnChangeDecouplerUI;
+                decoupler.Fields[nameof(decoupler.fairingStaged)].uiControlEditor.onSymmetryFieldChanged += OnChangeDecouplerUI;
+            }
         }
 
+        void OnChangeDecouplerUI(BaseField field, object obj) => UpdateMassAndCostDisplay();
         void OnChangeAutoShape(BaseField field, object obj)
         {
             if (baseAutoShape)
@@ -265,7 +281,7 @@ namespace Keramzit
             Fields[nameof(noseConeSegments)].guiActiveEditor = !noseAutoShape;
         }
 
-        public void updateNodeSize ()
+        private void UpdateNodeSize()
         {
             if (part.FindAttachNode("connect") is AttachNode node)
             {
@@ -276,9 +292,9 @@ namespace Keramzit
         public void UpdateMassAndCostDisplay()
         {
             int nsym = part.symmetryCounterparts.Count;
-            string s = (nsym == 0) ? string.Empty : (nsym == 1) ? " (both)" : $"(all {nsym + 1})";
+            string s = (nsym == 0) ? string.Empty : (nsym == 1) ? " (both)" : $" (all {nsym + 1})";
             float perPartCost = part.partInfo.cost + GetModuleCost(part.partInfo.cost, ModifierStagingSituation.CURRENT);
-            massDisplay = PFUtils.formatMass(totalMass * (nsym + 1)) + s;
+            massDisplay = PFUtils.formatMass(ApplyDecouplerMassModifier(fairingMass) * (nsym + 1)) + s;
             costDisplay = PFUtils.formatCost(perPartCost * (nsym + 1)) + s;
         }
 
@@ -337,9 +353,10 @@ namespace Keramzit
         private void UpdatePartParameters(double area)
         {
             float volume = Convert.ToSingle(area * sideThickness);
-            part.mass = totalMass = volume * density;
-            part.breakingForce = part.mass * specificBreakingForce;
-            part.breakingTorque = part.mass * specificBreakingTorque;
+            fairingMass = volume * density;
+            float totalMass = ApplyDecouplerMassModifier(fairingMass);
+            part.breakingForce = totalMass * specificBreakingForce;
+            part.breakingTorque = totalMass * specificBreakingTorque;
         }
 
         public void rebuildMesh ()
@@ -361,7 +378,7 @@ namespace Keramzit
             mf.transform.localPosition = meshPos;
             mf.transform.localRotation = meshRot;
 
-            updateNodeSize();
+            UpdateNodeSize();
 
             //  Build the fairing shape line.
 

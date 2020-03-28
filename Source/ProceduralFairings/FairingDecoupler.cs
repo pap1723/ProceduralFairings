@@ -45,8 +45,8 @@ namespace Keramzit
         {
             if (HighLogic.LoadedSceneIsEditor)
             {
-                (Fields[nameof(fairingStaged)].uiControlEditor as UI_Toggle).onFieldChanged += ToggleFairingStaging;
-                (Fields[nameof(fairingStaged)].uiControlEditor as UI_Toggle).onSymmetryFieldChanged += ToggleFairingStaging;
+                Fields[nameof(fairingStaged)].uiControlEditor.onFieldChanged += ToggleFairingStaging;
+                Fields[nameof(fairingStaged)].uiControlEditor.onSymmetryFieldChanged += ToggleFairingStaging;
             }
 
             ejectFx.audio = part.gameObject.AddComponent<AudioSource>();
