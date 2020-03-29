@@ -15,6 +15,7 @@ namespace Keramzit
         [KSPField] public float ejectionTorque = 10;
         [KSPField] public float ejectionLowDv;
         [KSPField] public float ejectionLowTorque;
+        [KSPField(isPersistant = true)] public bool decoupled = false;
 
         [KSPField] public string ejectSoundUrl = "Squad/Sounds/sound_decoupler_fire";
         public FXGroup ejectFx;
@@ -95,6 +96,7 @@ namespace Keramzit
             {
                 part.decouple();
                 ejectFx.audio.Play();
+                decoupled = true;
                 stagingEnabled = fairingStaged = false;
                 part.UpdateStageability(false, true);
                 SetJettisonEvents();
