@@ -67,6 +67,7 @@
     <Compile Include="PFKMJoint.cs" />
     <Compile Include="ProcAdapter.cs" />
     <Compile Include="Resizers.cs" />
+    <Compile Include="UpgradePipeline.cs" />
     <Compile Include="Utilities.cs" />
   </ItemGroup>
   <ItemGroup>

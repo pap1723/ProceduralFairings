@@ -550,20 +550,7 @@ namespace Keramzit
         {
             ProceduralFairingAdapter adapter = part.FindModuleImplementing<ProceduralFairingAdapter>();
             mode = adapter ? Enum.GetName(typeof(BaseMode), BaseMode.Adapter) : Enum.GetName(typeof(BaseMode), BaseMode.Payload);
-
-            if (Mode == BaseMode.Adapter)
-            {
-                baseSize = adapter.baseSize;
-                topSize = adapter.topSize;
-                height = adapter.height;
-                extraHeight = adapter.extraHeight;
-                autoDecoupleTopNode = adapter.topNodeDecouplesWhenFairingsGone;
-                topNodeName = adapter.topNodeName;
-            }
-            else if (Mode == BaseMode.Payload)
-            {
-            }
-            Debug.Log($"[PF] LegacyLoad() for {part}, Mode: {Mode}");
+            Debug.Log($"[PF] LegacyLoad() for {part}, Mode: {Mode}, skipping");
         }
 
         public System.Collections.IEnumerator HandleAutomaticDecoupling()
