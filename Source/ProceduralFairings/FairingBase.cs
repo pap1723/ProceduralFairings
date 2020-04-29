@@ -542,7 +542,12 @@ namespace Keramzit
             }
         }
 
-        public void UpdateNode(AttachNode node, Vector3 newPosition, int size, bool pushAttachments) => PFUtils.UpdateNode(part, node, newPosition, size, pushAttachments);
+        public void UpdateNode(AttachNode node, Vector3 newPosition, int size, bool pushAttachments, float attachDiameter = 0)
+        {
+            // Typically the node size is scaled by diameterStepLarge, so just un-scale it for the notification.
+            attachDiameter = (attachDiameter > 0) ? attachDiameter : size / diameterStepLarge;
+            PFUtils.UpdateNode(part, node, newPosition, size, pushAttachments, attachDiameter);
+        }
 
         #endregion
 

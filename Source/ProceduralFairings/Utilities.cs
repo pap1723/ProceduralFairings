@@ -116,7 +116,7 @@ namespace Keramzit
             }
         }
 
-        public static void UpdateNode(Part part, AttachNode node, Vector3 newPosition, int size, bool pushAttachments)
+        public static void UpdateNode(Part part, AttachNode node, Vector3 newPosition, int size, bool pushAttachments, float attachDiameter = 0)
         {
             if (node is AttachNode)
             {
@@ -128,7 +128,10 @@ namespace Keramzit
                     PFUtils.updateAttachedPartPos(node, part, oldPosWorld);
 
                 if (node.attachedPart is Part)
+                {
                     PFUtils.InformAttachedPartNodePositionChanged(node);
+                    PFUtils.InformAttachNodeSizeChanged(node, attachDiameter > 0 ? attachDiameter : Mathf.Max(node.size, 0.01f));
+                }
             }
         }
 
@@ -143,6 +146,18 @@ namespace Keramzit
                 baseEventDatum.Set("node", node);
 
                 node.attachedPart.SendEvent("OnPartAttachNodePositionChanged", baseEventDatum);
+            }
+        }
+
+        public static void InformAttachNodeSizeChanged(AttachNode node, float diameter, float area=0)
+        {
+            if (node is AttachNode && node.attachedPart is Part)
+            {
+                var data = new BaseEventDetails(BaseEventDetails.Sender.USER);
+                data.Set<AttachNode>("node", node);
+                data.Set<float>("minDia", diameter);
+                data.Set<float>("area", area > 0 ? area : Mathf.PI * diameter * diameter / 4);
+                node.attachedPart.SendEvent("OnPartAttachNodeSizeChanged", data);
             }
         }
 
