@@ -66,7 +66,7 @@ namespace Keramzit
                 Debug.LogError ($"[PF]: Cannot find decoupler sound: {ejectSoundUrl} for {this}");
 
             part.stagingIcon = DefaultIcons.FUEL_TANK.ToString();
-            stagingEnabled = fairingStaged;
+            part.stagingOn = stagingEnabled = fairingStaged;
             SetJettisonEvents();
         }
 
