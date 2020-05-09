@@ -451,9 +451,10 @@ namespace Keramzit
             part.breakingForce = part.mass * specificBreakingForce;
             part.breakingTorque = part.mass * specificBreakingTorque;
 
-            var offset = new Vector3 (maxRad * 0.7f, topY * 0.5f, 0);
-
-            part.CoMOffset = part.transform.InverseTransformPoint (mf.transform.TransformPoint (offset));
+            float anglePerPart = 360f / numSideParts;
+            float x = Mathf.Cos(Mathf.Deg2Rad * anglePerPart / 2);
+            Vector3 offset = new Vector3(maxRad * (1 + x) / 2, topY * 0.5f, 0);
+            part.CoMOffset = part.transform.InverseTransformPoint(mf.transform.TransformPoint(offset));
 
             //  Remove any old colliders.
 
