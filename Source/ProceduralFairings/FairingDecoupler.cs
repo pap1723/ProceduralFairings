@@ -112,10 +112,10 @@ namespace Keramzit
 
                     if (tr)
                     {
-                        Vector3d Δv = tr.TransformDirection(forceVector) * Mathf.Lerp(ejectionLowDv, ejectionDv, ejectionPower);
-                        part.AddImpulse(part.mass * Δv);
+                        Vector3d dv = tr.TransformDirection(forceVector) * Mathf.Lerp(ejectionLowDv, ejectionDv, ejectionPower);
+                        part.AddImpulse(part.mass * dv);
 
-                        Vector3 ΔωWorld = tr.TransformDirection(torqueVector) * Mathf.Lerp(ejectionLowTorque, ejectionTorque, torqueAmount);
+                        Vector3 dωWorld = tr.TransformDirection(torqueVector) * Mathf.Lerp(ejectionLowTorque, ejectionTorque, torqueAmount);
                         Vector3 principalMomentsOfInertia = part.Rigidbody.inertiaTensor;
                         // part.RigidBody.inertiaTensorRotation converts coordinates in the principal axes of
                         // the part to coordinates in the axes of the part.
@@ -123,10 +123,10 @@ namespace Keramzit
                         // coordinates.
                         Quaternion principalAxesToWorld = part.Rigidbody.rotation * part.Rigidbody.inertiaTensorRotation;
                         Quaternion worldToPrincipalAxes = Quaternion.Inverse(principalAxesToWorld);
-                        Vector3 ΔωPrincipalAxes = worldToPrincipalAxes * ΔωWorld;
-                        Vector3 ΔLPrincipalAxes = Vector3.Scale(principalMomentsOfInertia, ΔωPrincipalAxes);
-                        Vector3 ΔLWorld = principalAxesToWorld * ΔLPrincipalAxes;
-                        part.AddTorque(ΔLWorld / TimeWarp.fixedDeltaTime);
+                        Vector3 dωPrincipalAxes = worldToPrincipalAxes * dωWorld;
+                        Vector3 dLPrincipalAxes = Vector3.Scale(principalMomentsOfInertia, dωPrincipalAxes);
+                        Vector3 dLWorld = principalAxesToWorld * dLPrincipalAxes;
+                        part.AddTorque(dLWorld / TimeWarp.fixedDeltaTime);
                     }
                     else
                     {
