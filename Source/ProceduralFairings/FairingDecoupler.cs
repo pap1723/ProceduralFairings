@@ -1,4 +1,4 @@
-//  ==================================================
+﻿//  ==================================================
 //  Procedural Fairings plug-in by Alexey Volynskov.
 
 //  Licensed under CC-BY-4.0 terms: https://creativecommons.org/licenses/by/4.0/legalcode
@@ -112,8 +112,21 @@ namespace Keramzit
 
                     if (tr)
                     {
-                        part.Rigidbody.AddForce (tr.TransformDirection (forceVector) * Mathf.Lerp (ejectionLowDv, ejectionDv, ejectionPower), ForceMode.VelocityChange);
-                        part.Rigidbody.AddTorque (tr.TransformDirection (torqueVector) * Mathf.Lerp (ejectionLowTorque, ejectionTorque, torqueAmount), ForceMode.VelocityChange);
+                        Vector3d dv = tr.TransformDirection(forceVector) * Mathf.Lerp(ejectionLowDv, ejectionDv, ejectionPower);
+                        part.AddImpulse(part.mass * dv);
+
+                        Vector3 dωWorld = tr.TransformDirection(torqueVector) * Mathf.Lerp(ejectionLowTorque, ejectionTorque, torqueAmount);
+                        Vector3 principalMomentsOfInertia = part.Rigidbody.inertiaTensor;
+                        // part.RigidBody.inertiaTensorRotation converts coordinates in the principal axes of
+                        // the part to coordinates in the axes of the part.
+                        // part.RigidBody.rotation converts coordinates in the axes of the part to World
+                        // coordinates.
+                        Quaternion principalAxesToWorld = part.Rigidbody.rotation * part.Rigidbody.inertiaTensorRotation;
+                        Quaternion worldToPrincipalAxes = Quaternion.Inverse(principalAxesToWorld);
+                        Vector3 dωPrincipalAxes = worldToPrincipalAxes * dωWorld;
+                        Vector3 dLPrincipalAxes = Vector3.Scale(principalMomentsOfInertia, dωPrincipalAxes);
+                        Vector3 dLWorld = principalAxesToWorld * dLPrincipalAxes;
+                        part.AddTorque(dLWorld / TimeWarp.fixedDeltaTime);
                     }
                     else
                     {
