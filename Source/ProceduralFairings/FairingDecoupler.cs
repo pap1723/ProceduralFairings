@@ -225,6 +225,7 @@ namespace Keramzit
             //  Set the state of the "Jettison Fairing" PAW button.
 
             Events["OnJettisonFairing"].guiActive = fairingStaged;
+            part.stagingOn = fairingStaged;
 
             //  Update the staging icon sequence.
 
@@ -234,8 +235,8 @@ namespace Keramzit
         void OnUpdateUI (BaseField bf, object obj)
         {
             //  Update the staging icon sequence.
-
-            OnSetStagingIcons ();
+            part.stagingOn = fairingStaged;
+            OnSetStagingIcons();
         }
    }
 }
