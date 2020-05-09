@@ -322,6 +322,58 @@ namespace Keramzit
             }
         }
 
+        private void RebuildColliders()
+        {
+            if (part.FindModelComponent<MeshFilter>("model") is MeshFilter mf)
+            {
+                //  Remove any old colliders.
+                foreach (Collider c in part.FindModelComponents<Collider>())
+                    Destroy(c.gameObject);
+
+                float maxAnglePerCollider = 30;
+                float anglePerPart = 360f / numSideParts;
+                int numColliders = Mathf.CeilToInt(anglePerPart / maxAnglePerCollider);
+                float anglePerCollider = anglePerPart / numColliders;
+
+                float collWidth = (maxRad + sideThickness * 0.5f) * Mathf.PI * 2 / (numSideParts * numColliders);
+                float collCenter = (cylStart + cylEnd) / 2;
+                float collHeight = cylEnd - cylStart;
+                if (collHeight <= 0)
+                {
+                    Debug.LogWarning($"[PF] rebuildMesh() collHeight was negative ({collHeight}) from start {cylStart} > end {cylEnd}");
+                    collHeight = Mathf.Abs(collHeight);
+                }
+
+                float startAngle = (-anglePerPart + anglePerCollider) / 2;
+                //  Add the new colliders.
+                for (int i = 0; i < numColliders; i++)
+                {
+                    GameObject obj = new GameObject($"collider_{i}");
+                    BoxCollider coll = obj.AddComponent<BoxCollider>();
+                    coll.transform.parent = mf.transform;
+                    coll.transform.localPosition = Vector3.zero;
+                    coll.transform.localRotation = Quaternion.AngleAxis(startAngle + (i * anglePerCollider), Vector3.up);
+                    coll.center = new Vector3(maxRad + sideThickness * 0.5f, collCenter, 0);
+                    coll.size = new Vector3(sideThickness, collHeight, collWidth);
+                }
+                {
+                    //  Nose collider.
+                    GameObject obj = new GameObject("nose_collider");
+                    SphereCollider coll = obj.AddComponent<SphereCollider>();
+                    float r = (inlineHeight > 0) ? sideThickness / 2 : maxRad * 0.2f;
+                    float tip = maxRad * noseHeightRatio;
+
+                    coll.transform.parent = mf.transform;
+                    coll.transform.localRotation = Quaternion.identity;
+                    coll.transform.localPosition = (inlineHeight > 0) ?
+                                                    new Vector3(maxRad + r, collCenter, 0) :
+                                                    new Vector3(r, cylEnd + tip - r * 1.2f, 0);
+                    coll.center = Vector3.zero;
+                    coll.radius = r;
+                }
+            }
+        }
+
         public void rebuildMesh ()
         {
             var mf = part.FindModelComponent<MeshFilter>("model");
@@ -456,55 +508,7 @@ namespace Keramzit
             Vector3 offset = new Vector3(maxRad * (1 + x) / 2, topY * 0.5f, 0);
             part.CoMOffset = part.transform.InverseTransformPoint(mf.transform.TransformPoint(offset));
 
-            //  Remove any old colliders.
-
-            var colls = part.FindModelComponents<Collider>();
-
-            for (int i = 0; i < colls.Count; i++)
-            {
-                var c = colls [i];
-
-                UnityEngine.Object.Destroy (c.gameObject);
-            }
-
-            //  Add the new colliders.
-
-            for (int i = -1; i <= 1; ++i)
-            {
-                var obj = new GameObject ("collider");
-
-                obj.transform.parent = mf.transform;
-                obj.transform.localPosition = Vector3.zero;
-                obj.transform.localRotation = Quaternion.AngleAxis (90f * i / numSideParts, Vector3.up);
-
-                var coll = obj.AddComponent<BoxCollider>();
-
-                coll.center = new Vector3 (maxRad + sideThickness * 0.5f, collCenter, 0);
-                coll.size = new Vector3 (sideThickness, collHeight, collWidth);
-            }
-            {
-                //  Nose collider.
-
-                float r = maxRad * 0.2f;
-
-                var obj = new GameObject ("nose_collider");
-
-                obj.transform.parent = mf.transform;
-                obj.transform.localPosition = new Vector3 (r, cylEnd + tip - r * 1.2f, 0);
-                obj.transform.localRotation = Quaternion.identity;
-
-                if (inlineHeight > 0)
-                {
-                    r = sideThickness * 0.5f;
-
-                    obj.transform.localPosition = new Vector3 (maxRad + r, collCenter, 0);
-                }
-
-                var coll = obj.AddComponent<SphereCollider>();
-
-                coll.center = Vector3.zero;
-                coll.radius = r;
-            }
+            RebuildColliders();
 
             //  Build the fairing mesh.
 
