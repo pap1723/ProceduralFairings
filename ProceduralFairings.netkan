@@ -16,12 +16,12 @@
         "homepage"  : "https://github.com/KSP-RO/ProceduralFairings-ForEverything"
     },
     "suggests"      : [
-		{ "name"    : "PFTextures" },
-		{ "name"    : "ProceduralFairings-ForEverything" }
-        ],
+        { "name"    : "PFTextures" },
+        { "name"    : "ProceduralFairings-ForEverything" }
+    ],
     "install" : [
         {
-            "file"          : "GameData/ProceduralFairings",
+            "file"          : "ProceduralFairings",
             "install_to"    : "GameData"
         }
     ]
