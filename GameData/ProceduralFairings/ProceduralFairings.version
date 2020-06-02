@@ -1,7 +1,7 @@
 {
   "NAME"     : "Procedural Fairings",
   "DOWNLOAD" : "https://github.com/KSP-RO/ProceduralFairings/releases",
-  "URL"      : "https://raw.githubusercontent.com/KSP-RO/ProceduralFairings/master/GameData/ProceduralFairings.version",
+  "URL"      : "https://github.com/KSP-RO/ProceduralFairings/raw/master/GameData/ProceduralFairings/ProceduralFairings.version",
   "GITHUB" : {
     "USERNAME"   : "KSP-RO",
     "REPOSITORY" : "ProceduralFairings"
