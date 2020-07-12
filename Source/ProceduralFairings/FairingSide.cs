@@ -13,6 +13,7 @@ namespace Keramzit
     public class ProceduralFairingSide : PartModule, IPartCostModifier, IPartMassModifier
     {
         [KSPField] public float minBaseConeAngle = 20;
+        [KSPField] public float colliderShaveAngle = 5;
         [KSPField] public Vector4 baseConeShape = new Vector4 (0, 0, 0, 0);
         [KSPField] public Vector4 noseConeShape = new Vector4 (0, 0, 0, 0);
 
@@ -322,7 +323,13 @@ namespace Keramzit
             }
         }
 
-        private void RebuildColliders()
+        // dirs are a list of rotations in the y-plane for normals along the fairside edge
+        // they are an alternate description of number of colliders per part.
+        // shape[i].x is the radius of the fairingside
+        // shape[i].y is the y-coord of point i, the height on the fairingside
+        // shape[i].z I have no idea.  It's a lerp between magic numbers in the vertexMapping.
+        // presumably this describes curvature somehow
+        private void RebuildColliders(Vector3[] shape, Vector3[] dirs)
         {
             if (part.FindModelComponent<MeshFilter>("model") is MeshFilter mf)
             {
@@ -330,38 +337,18 @@ namespace Keramzit
                 foreach (Collider c in part.FindModelComponents<Collider>())
                     Destroy(c.gameObject);
 
-                float maxAnglePerCollider = 30;
-                float anglePerPart = 360f / numSideParts;
-                int numColliders = Mathf.CeilToInt(anglePerPart / maxAnglePerCollider);
+                float anglePerPart = Mathf.Max((360f / numSideParts) - colliderShaveAngle, 1);
+                int numColliders = dirs.Length;
                 float anglePerCollider = anglePerPart / numColliders;
-
-                float collWidth = (maxRad + sideThickness * 0.5f) * Mathf.PI * 2 / (numSideParts * numColliders);
-                float collCenter = (cylStart + cylEnd) / 2;
-                float collHeight = cylEnd - cylStart;
-                if (collHeight <= 0)
-                {
-                    Debug.LogWarning($"[PF] rebuildMesh() collHeight was negative ({collHeight}) from start {cylStart} > end {cylEnd}");
-                    collHeight = Mathf.Abs(collHeight);
-                }
-
-                float startAngle = (-anglePerPart + anglePerCollider) / 2;
+                float startAngle = (-anglePerPart / 2) + (anglePerCollider / 2);
                 //  Add the new colliders.
-                for (int i = 0; i < numColliders; i++)
-                {
-                    GameObject obj = new GameObject($"collider_{i}");
-                    BoxCollider coll = obj.AddComponent<BoxCollider>();
-                    coll.transform.parent = mf.transform;
-                    coll.transform.localPosition = Vector3.zero;
-                    coll.transform.localRotation = Quaternion.AngleAxis(startAngle + (i * anglePerCollider), Vector3.up);
-                    coll.center = new Vector3(maxRad + sideThickness * 0.5f, collCenter, 0);
-                    coll.size = new Vector3(sideThickness, collHeight, collWidth);
-                }
                 {
                     //  Nose collider.
                     GameObject obj = new GameObject("nose_collider");
                     SphereCollider coll = obj.AddComponent<SphereCollider>();
                     float r = (inlineHeight > 0) ? sideThickness / 2 : maxRad * 0.2f;
                     float tip = maxRad * noseHeightRatio;
+                    float collCenter = (cylStart + cylEnd) / 2;
 
                     coll.transform.parent = mf.transform;
                     coll.transform.localRotation = Quaternion.identity;
@@ -371,6 +358,115 @@ namespace Keramzit
                     coll.center = Vector3.zero;
                     coll.radius = r;
                 }
+
+                // build list of normals from shape[], the list of points on the inside surface
+                Vector3[] normals = new Vector3[shape.Length];
+                for (int i=0; i<shape.Length; i++)
+                {
+                    Vector3 norm;
+                    if (i == 0)
+                        norm = cylStart > float.Epsilon ? new Vector3(0, 1, 0) : shape[1] - shape[0];
+                    else if (i == shape.Length - 1)
+                        norm = new Vector3(0, 1, 0);
+                    else
+                        norm = shape[i + 1] - shape[i - 1];
+                    norm.Set(norm.y, -norm.x, 0);
+                    normals[i] = norm.normalized;
+                }
+                for (int i = 0; i < shape.Length - 1; i++)
+                {
+                    // p.x, p.y is a point on the 2D shape projection.  p.z == ??
+                    // normals[i] is the 3D normal to (p.x, p.y, 0)
+                    Vector3 p = shape[i];
+                    Vector3 pNext = shape[i + 1];
+                    p.z = pNext.z = 0;
+                    // Project the points outward and build a grid on the outer edge.
+                    p += normals[i] * sideThickness;
+                    pNext += normals[i+1] * sideThickness;
+
+                    // Build a grid between pNext and p
+                    Vector3 n = pNext - p;
+                    n.Set(n.y, -n.x, 0);
+                    n.Normalize();
+                    // n is normal to the normal-projected shape[i],aligned to x=forward
+
+                    // shape[i] is a list of points along a vertical slice
+                    // dirs[j] is a list of normals around a horizontal slice
+                    // Create faces/box colliders centered between shape[i],shape[i+1] of desired angular radius
+                    // cp is the centerpoint of the collider, positioned 1/10th of sideThickness inside the fairing outer edge.
+                    Vector3 cp = (pNext + p) / 2;
+                    cp -= (sideThickness * 0.1f) * n;
+                    float collWidth = cp.x * Mathf.PI * 2 / (numSideParts * numColliders);
+                    Vector3 size = new Vector3(collWidth, (pNext - p).magnitude, sideThickness * 0.1f);
+                    // Skip the collider if adjacent points are too close.
+                    if (size.y > 0.001)
+                        BuildColliderRow(mf.transform, p, cp, n, size, numColliders, startAngle, anglePerCollider, $"{i}");
+                }
+                /*
+                if ((inlineHeight <= 0 && numStandardColliders > 2) || (inlineHeight > 0 && cylEnd < inlineHeight))
+                {
+                    // Draw the last two colliders on the top and inner face near the last point.
+                    // Draw from projection of (k-1)th point to p
+                    Vector3 p = shape[shape.Length-1];
+                    Vector3 pPrev = shape[shape.Length - 2];
+                    p.z = pPrev.z = 0;
+                    p += normals[shape.Length-1] * sideThickness;
+                    pPrev += normals[shape.Length-2] * sideThickness;
+                    // Compute n = normal to (pPrev->p) == normal to surface
+                    Vector3 n = p - pPrev;
+                    n.Set(n.y, -n.x, 0);
+                    n.Normalize();
+                    // Get projected point on the outer surface
+                    //Vector3 proj = pPrev + (n * sideThickness);
+                    //p.x += sideThickness;
+                    // Compute normal between projected point and endpoint p
+                    //n = p - pPrev;
+                    //n.Set(n.y, -n.x, 0);
+                    //n.Normalize();
+
+                    Vector3 cp = (pPrev + p) / 2;
+                    float collWidth = cp.x * Mathf.PI * 2 / (numSideParts * numColliders);
+                    Vector3 size = new Vector3(collWidth, (p - pPrev).magnitude, 0.01f);
+                    // cp is currently the midpoint between the last and next-to-last point on the inside of the fairing.
+                    // Draw very thin colliders on the inner face.
+                    BuildColliderRow(mf.transform, p, cp, n, size, numColliders, startAngle, anglePerCollider, "topInner");
+                    // Draw thin collider on inner surface from p-1 to p
+                    n = p - pPrev;
+                    n.Set(n.y, -n.x, 0);
+                    n.Normalize();
+
+                    cp = (pPrev + p) / 2;
+                    collWidth = cp.x * Mathf.PI * 2 / (numSideParts * numColliders);
+                    size = new Vector3(collWidth, sideThickness, 0.01f);
+                    BuildColliderRow(mf.transform, p, cp, n, size, numColliders, startAngle, anglePerCollider, "top");
+                }
+                */
+            }
+        }
+
+        private void BuildColliderRow(Transform parent, Vector3 p, Vector3 cp, Vector3 normal, Vector3 size, int numColliders, float startAngle, float anglePerCollider, string name)
+        {
+            for (int j = 0; j < numColliders; j++)
+            {
+                float rotAngle = startAngle + (j * anglePerCollider);
+                Quaternion RotY = Quaternion.Euler(0, -rotAngle, 0);
+
+                GameObject obj = new GameObject($"collider_{name}_{j}");
+                BoxCollider coll = obj.AddComponent<BoxCollider>();
+                coll.transform.parent = parent;
+
+                Vector3 projectedP = new Vector3(Mathf.Cos(rotAngle * Mathf.Deg2Rad) * p.x,
+                                                            p.y,
+                                                            Mathf.Sin(rotAngle * Mathf.Deg2Rad) * p.x);
+                Vector3 projectedCP = new Vector3(Mathf.Cos(rotAngle * Mathf.Deg2Rad) * cp.x,
+                                                            cp.y,
+                                                            Mathf.Sin(rotAngle * Mathf.Deg2Rad) * cp.x);
+
+                // forward = z becomes the direction of the normal; up is direction to the next point
+                coll.transform.localPosition = projectedCP;
+                coll.transform.localRotation = Quaternion.LookRotation(RotY * normal, (projectedCP - projectedP).normalized);
+                coll.center = Vector3.zero;
+                coll.size = size;
             }
         }
 
@@ -448,8 +544,6 @@ namespace Keramzit
             float ringSegLen = baseRad * Mathf.PI * 2 / (numSegs * numSideParts);
             float topRingSegLen = topRad * Mathf.PI * 2 / (numSegs * numSideParts);
 
-            float collWidth = maxRad * Mathf.PI * 2 / (numSideParts * 3);
-
             int numMainVerts = (numSegs + 1) * (shape.Length - 1) + 1;
             int numMainFaces = numSegs * ((shape.Length - 2) * 2 + 1);
 
@@ -478,14 +572,6 @@ namespace Keramzit
 
             float topY = p.y, topV = p.z;
 
-            float collCenter = (cylStart + cylEnd) / 2;
-            float collHeight = cylEnd - cylStart;
-
-            if (collHeight <= 0)
-            {
-                collHeight = Mathf.Min (topY - cylEnd, cylStart) / 2;
-            }
-
             //  Compute the area.
 
             double area = 0;
@@ -508,7 +594,7 @@ namespace Keramzit
             Vector3 offset = new Vector3(maxRad * (1 + x) / 2, topY * 0.5f, 0);
             part.CoMOffset = part.transform.InverseTransformPoint(mf.transform.TransformPoint(offset));
 
-            RebuildColliders();
+            RebuildColliders(shape, dirs);
 
             //  Build the fairing mesh.
 
