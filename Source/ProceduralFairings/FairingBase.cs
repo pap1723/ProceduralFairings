@@ -523,6 +523,7 @@ namespace Keramzit
             if (part.FindAttachNode("top") is AttachNode baseTopNode)
             {
                 UpdateNode(baseTopNode, baseTopNode.originalPosition * baseDiameterAdj, TopNodeSize, pushAttachments);
+                UpdateHintPosForNode(baseTopNode, nonDecouplerHint, isDecoupleableNode: false);
                 topHeight = baseTopNode.position.y;
             }
             if (part.FindAttachNode("bottom") is AttachNode bottomNode)
@@ -536,10 +537,7 @@ namespace Keramzit
                 {
                     Vector3 newPos = new Vector3(topNode.position.x, height, topNode.position.z);
                     UpdateNode(topNode, newPos, TopNodeSize, pushAttachments);
-                    UpdateHintPosForNode(topNode, isDecoupleableNode: true);
-
-                    AttachNode nonDecouplNode = part.FindAttachNode("top");
-                    UpdateHintPosForNode(nonDecouplNode, isDecoupleableNode: false);
+                    UpdateHintPosForNode(topNode, decouplerHint, isDecoupleableNode: true);
                 }
                 else
                     Debug.LogError($"[PF]: No '{topNodeName}' node in part {part}!");
@@ -583,14 +581,12 @@ namespace Keramzit
             PFUtils.UpdateNode(part, node, newPosition, size, pushAttachments, attachDiameter);
         }
 
-        private void UpdateHintPosForNode(AttachNode node, bool isDecoupleableNode)
+        private void UpdateHintPosForNode(AttachNode node, TextMeshPro hintObj, bool isDecoupleableNode)
         {
-            TextMeshPro hintObj = isDecoupleableNode ? decouplerHint : nonDecouplerHint;
             Vector3 hintPos = node.position;
             float horizTextOffset = node.radius / 2 + hintObj.renderedWidth / 2;
+            horizTextOffset *= isDecoupleableNode ? 1 : -1;    // move text to the left for non-decoupleable nodes
             var offset = new Vector3(horizTextOffset, 0, 0);
-            if (!isDecoupleableNode)
-                offset = -offset;    // move text to the left for non-decoupleable nodes
 
             hintPos += hintObj.transform.rotation * offset;
             hintObj.transform.localPosition = hintPos;
@@ -823,37 +819,33 @@ namespace Keramzit
             var rotToCamera = new Vector3(0f, Camera.main.transform.rotation.eulerAngles.y, 0f);
             if (decouplerHint == null)
             {
-                var o = new GameObject("attch-node-hint1");
-                o.transform.localPosition = Vector3.zero;
-                o.transform.localRotation = Quaternion.identity;
-
-                decouplerHint = o.AddComponent<TextMeshPro>();
-                decouplerHint.SetText("<- This node decouples");
-                decouplerHint.color = Color.green;
-                decouplerHint.alpha = 0.75f;
-                decouplerHint.fontSize = 2;
+                decouplerHint = InitializeHint("attach-node-hint1", "<- This node decouples", rotToCamera, part.transform);
                 decouplerHint.alignment = TextAlignmentOptions.Center;
-                decouplerHint.enabled = false;
             }
-            decouplerHint.gameObject.transform.parent = part.transform;
-            decouplerHint.gameObject.transform.eulerAngles = rotToCamera;
 
             if (nonDecouplerHint == null)
             {
-                var o = new GameObject("attch-node-hint2");
-                o.transform.localPosition = Vector3.zero;
-                o.transform.localRotation = Quaternion.identity;
-
-                nonDecouplerHint = o.AddComponent<TextMeshPro>();
-                nonDecouplerHint.SetText("This does not decouple ->");
-                nonDecouplerHint.color = Color.green;
-                nonDecouplerHint.alpha = 0.75f;
-                nonDecouplerHint.fontSize = 2;
+                nonDecouplerHint = InitializeHint("attach-node-hint2", "This does not decouple ->", rotToCamera, part.transform);
                 nonDecouplerHint.alignment = TextAlignmentOptions.Baseline;
-                nonDecouplerHint.enabled = false;
             }
-            nonDecouplerHint.gameObject.transform.parent = part.transform;
-            nonDecouplerHint.gameObject.transform.eulerAngles = rotToCamera;
+        }
+
+        private TextMeshPro InitializeHint(string name, string text, Vector3 rotToCamera, Transform parent)
+        {
+            var o = new GameObject(name);
+            o.transform.localPosition = Vector3.zero;
+            o.transform.localRotation = Quaternion.identity;
+
+            var hint = o.AddComponent<TextMeshPro>();
+            hint.SetText(text);
+            hint.color = Color.green;
+            hint.alpha = 0.75f;
+            hint.fontSize = 2;
+            //hint.alignment = TextAlignmentOptions.Center;
+            hint.enabled = false;
+            hint.gameObject.transform.parent = parent;
+            hint.gameObject.transform.eulerAngles = rotToCamera;
+            return hint;
         }
 
         static public Vector3 [] buildFairingShape (float baseRad, float maxRad, float cylStart, float cylEnd, float noseHeightRatio, Vector4 baseConeShape, Vector4 noseConeShape, int baseConeSegments, int noseConeSegments, Vector4 vertMapping, float mappingScaleY)
