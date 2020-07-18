@@ -1,4 +1,4 @@
-//  ==================================================
+﻿//  ==================================================
 //  Procedural Fairings plug-in by Alexey Volynskov.
 
 //  Licensed under CC-BY-4.0 terms: https://creativecommons.org/licenses/by/4.0/legalcode
@@ -7,6 +7,7 @@
 using ProceduralFairings;
 using System;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 namespace Keramzit
@@ -106,7 +107,9 @@ namespace Keramzit
         float fairingBaseMass = 0;
 
         public bool needShapeUpdate = true;
-        LineRenderer line;
+        private LineRenderer line;
+        private TextMeshPro decouplerHint;
+        private TextMeshPro nonDecouplerHint;
         readonly List<LineRenderer> outline = new List<LineRenderer>();
         readonly List<ConfigurableJoint> joints = new List<ConfigurableJoint>();
         public DragCubeUpdater dragCubeUpdater;
@@ -144,6 +147,17 @@ namespace Keramzit
             requestLegacyLoad = !(node.HasValue(nameof(mode)));
         }
 
+        public override void OnAwake()
+        {
+            base.OnAwake();
+
+            if (HighLogic.LoadedSceneIsEditor)
+            {
+                GameEvents.onEditorPartEvent.Add(OnEditorPartEvent);
+                InitializeHintTexts();
+            }
+        }
+
         public override void OnStart (StartState state)
         {
             dragCubeUpdater = new DragCubeUpdater(part);
@@ -161,7 +175,7 @@ namespace Keramzit
                 if (line)
                     line.transform.Rotate (0, 90, 0);
 
-                DestroyAllLineRenderers ();
+                DestroyAllLineRenderers();
                 DestroyOutline();
                 InitializeFairingOutline(outlineSlices, outlineColor, outlineWidth);
 
@@ -204,6 +218,7 @@ namespace Keramzit
             GameEvents.onPartAttach.Remove(OnPartAttach);
             GameEvents.onPartRemove.Remove(OnPartRemove);
             GameEvents.onVariantApplied.Remove(OnPartVariantApplied);
+            GameEvents.onEditorPartEvent.Remove(OnEditorPartEvent);
             GameEvents.onVesselWasModified.Remove(OnVesselModified);
 
             if (line)
@@ -213,6 +228,9 @@ namespace Keramzit
             }
             DestroyAllLineRenderers();
             DestroyOutline();
+
+            decouplerHint?.gameObject.DestroyGameObject();
+            nonDecouplerHint?.gameObject.DestroyGameObject();
         }
         #endregion
 
@@ -251,12 +269,18 @@ namespace Keramzit
             // On loading any craft, the sideFairing knows its shape already.
             // Thus only need to do this when our attachment state will change.
             needShapeUpdate = HighLogic.LoadedSceneIsEditor;
+
+            if (action.host == part || action.target == part)
+                ToggleNodeHints(false);
         }
 
         void OnPartRemove(GameEvents.HostTargetAction<Part, Part> action)
         {
             needShapeUpdate = HighLogic.LoadedSceneIsEditor;
             StartCoroutine(DisplayFairingOutline());
+
+            if (action.host == part || action.target == part)
+                ToggleNodeHints(true);
         }
 
         void OnVesselModified(Vessel v)
@@ -267,6 +291,12 @@ namespace Keramzit
                     RemoveJoints();
                 StartCoroutine(HandleAutomaticDecoupling());
             }
+        }
+
+        private void OnEditorPartEvent(ConstructionEventType type, Part part)
+        {
+            if (type == ConstructionEventType.PartCreated && this.part == part)
+                ToggleNodeHints(true);
         }
         #endregion
 
@@ -493,6 +523,7 @@ namespace Keramzit
             if (part.FindAttachNode("top") is AttachNode baseTopNode)
             {
                 UpdateNode(baseTopNode, baseTopNode.originalPosition * baseDiameterAdj, TopNodeSize, pushAttachments);
+                UpdateHintPosForNode(baseTopNode, nonDecouplerHint, isDecoupleableNode: false);
                 topHeight = baseTopNode.position.y;
             }
             if (part.FindAttachNode("bottom") is AttachNode bottomNode)
@@ -506,6 +537,7 @@ namespace Keramzit
                 {
                     Vector3 newPos = new Vector3(topNode.position.x, height, topNode.position.z);
                     UpdateNode(topNode, newPos, TopNodeSize, pushAttachments);
+                    UpdateHintPosForNode(topNode, decouplerHint, isDecoupleableNode: true);
                 }
                 else
                     Debug.LogError($"[PF]: No '{topNodeName}' node in part {part}!");
@@ -547,6 +579,17 @@ namespace Keramzit
             // Typically the node size is scaled by diameterStepLarge, so just un-scale it for the notification.
             attachDiameter = (attachDiameter > 0) ? attachDiameter : size / diameterStepLarge;
             PFUtils.UpdateNode(part, node, newPosition, size, pushAttachments, attachDiameter);
+        }
+
+        private void UpdateHintPosForNode(AttachNode node, TextMeshPro hintObj, bool isDecoupleableNode)
+        {
+            Vector3 hintPos = node.position;
+            float horizTextOffset = node.radius / 2 + hintObj.renderedWidth / 2;
+            horizTextOffset *= isDecoupleableNode ? 1 : -1;    // move text to the left for non-decoupleable nodes
+            var offset = new Vector3(horizTextOffset, 0, 0);
+
+            hintPos += hintObj.transform.rotation * offset;
+            hintObj.transform.localPosition = hintPos;
         }
 
         #endregion
@@ -771,6 +814,40 @@ namespace Keramzit
             }
         }
 
+        private void InitializeHintTexts()
+        {
+            var rotToCamera = new Vector3(0f, Camera.main.transform.rotation.eulerAngles.y, 0f);
+            if (decouplerHint == null)
+            {
+                decouplerHint = InitializeHint("attach-node-hint1", "<- This node decouples", rotToCamera, part.transform);
+                decouplerHint.alignment = TextAlignmentOptions.Center;
+            }
+
+            if (nonDecouplerHint == null)
+            {
+                nonDecouplerHint = InitializeHint("attach-node-hint2", "This does not decouple ->", rotToCamera, part.transform);
+                nonDecouplerHint.alignment = TextAlignmentOptions.Baseline;
+            }
+        }
+
+        private TextMeshPro InitializeHint(string name, string text, Vector3 rotToCamera, Transform parent)
+        {
+            var o = new GameObject(name);
+            o.transform.localPosition = Vector3.zero;
+            o.transform.localRotation = Quaternion.identity;
+
+            var hint = o.AddComponent<TextMeshPro>();
+            hint.SetText(text);
+            hint.color = Color.green;
+            hint.alpha = 0.75f;
+            hint.fontSize = 2;
+            //hint.alignment = TextAlignmentOptions.Center;
+            hint.enabled = false;
+            hint.gameObject.transform.parent = parent;
+            hint.gameObject.transform.eulerAngles = rotToCamera;
+            return hint;
+        }
+
         static public Vector3 [] buildFairingShape (float baseRad, float maxRad, float cylStart, float cylEnd, float noseHeightRatio, Vector4 baseConeShape, Vector4 noseConeShape, int baseConeSegments, int noseConeSegments, Vector4 vertMapping, float mappingScaleY)
         {
             float baseConeRad = maxRad - baseRad;
@@ -883,6 +960,12 @@ namespace Keramzit
                     lr.SetPosition(i, new Vector3(shape[i].x, shape[i].y));
                 }
             }
+        }
+
+        private void ToggleNodeHints(bool isVisible)
+        {
+            decouplerHint.enabled = isVisible && Mode == BaseMode.Adapter;
+            nonDecouplerHint.enabled = isVisible && Mode == BaseMode.Adapter;
         }
         #endregion
 
