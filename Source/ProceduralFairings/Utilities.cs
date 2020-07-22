@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Keramzit
@@ -32,24 +33,11 @@ namespace Keramzit
         }
     }
 
-    class Tuple<T1, T2>
-    {
-        internal T1 Item1 { get; set; }
-        internal T2 Item2 { get; set; }
-
-        public Tuple (T1 item1, T2 item2)
-        {
-            this.Item1 = item1;
-            this.Item2 = item2;
-        }
-    }
-
     public static class PFUtils
     {
-        public static bool canCheckTech ()
-        {
-            return HighLogic.LoadedSceneIsEditor && (ResearchAndDevelopment.Instance != null || (HighLogic.CurrentGame.Mode != Game.Modes.CAREER && HighLogic.CurrentGame.Mode != Game.Modes.SCIENCE_SANDBOX));
-        }
+        public const string PAWName = "ProceduralFairings";
+        public const string PAWGroup = "ProceduralFairings";
+        public static bool canCheckTech () => HighLogic.LoadedSceneIsEditor && (ResearchAndDevelopment.Instance != null || (HighLogic.CurrentGame.Mode != Game.Modes.CAREER && HighLogic.CurrentGame.Mode != Game.Modes.SCIENCE_SANDBOX));
 
         public static bool haveTech (string name)
         {
@@ -61,267 +49,188 @@ namespace Keramzit
             return ResearchAndDevelopment.GetTechnologyState (name) == RDTech.State.Available;
         }
 
-        public static float getTechMinValue (string cfgname, float defVal)
+        public static void GetTechLimits(string cfgName, out float minVal, out float maxVal)
         {
-            bool hasValue = false;
-            float minVal = 0;
-
-            var confnodes = GameDatabase.Instance.GetConfigNodes (cfgname);
-
-            for (int j = 0; j < confnodes.Length; j++)
+            minVal = float.PositiveInfinity;
+            maxVal = float.NegativeInfinity;
+            foreach (ConfigNode tech in GameDatabase.Instance.GetConfigNodes(cfgName))
             {
-                var tech = confnodes [j];
-
-                for (int i = 0; i < tech.values.Count; ++i)
+                foreach (ConfigNode.Value value in tech.values)
                 {
-                    var value = tech.values [i];
-
-                    if (!haveTech(value.name))
+                    if (haveTech(value.name))
                     {
-                        continue;
-                    }
-
-                    float v = float.Parse (value.value);
-
-                    if (!hasValue || v < minVal)
-                    {
-                        minVal = v;
-                        hasValue = true;
+                        minVal = Mathf.Min(minVal, float.Parse(value.value));
+                        maxVal = Mathf.Max(maxVal, float.Parse(value.value));
                     }
                 }
             }
-
-            return (!hasValue) ? defVal : minVal;
         }
 
-        public static float getTechMaxValue (string cfgname, float defVal)
+        public static float getTechMinValue(string cfgname, float defVal)
         {
-            bool hasValue = false;
-            float maxVal = 0;
-
-            var confnodes = GameDatabase.Instance.GetConfigNodes (cfgname);
-
-            for (int j = 0; j < confnodes.Length; j++)
-            {
-                var tech = confnodes [j];
-
-                for (int i = 0; i < tech.values.Count; ++i)
-                {
-                    var value = tech.values [i];
-
-                    if (!haveTech(value.name))
-                    {
-                        continue;
-                    }
-
-                    float v = float.Parse (value.value);
-
-                    if (!hasValue || v > maxVal)
-                    {
-                        maxVal = v;
-                        hasValue = true;
-                    }
-                }
-            }
-
-            return (!hasValue) ? defVal : maxVal;
+            GetTechLimits(cfgname, out float minVal, out float _);
+            return float.IsPositiveInfinity(minVal) ? defVal : minVal;
         }
 
-        public static void setFieldRange (BaseField field, float minval, float maxval)
+        public static float getTechMaxValue(string cfgname, float defVal)
         {
-            var fr = field.uiControlEditor as UI_FloatRange;
+            GetTechLimits(cfgname, out float _, out float maxVal);
+            return float.IsNegativeInfinity(maxVal) ? defVal : maxVal;
+        }
 
-            if (fr != null)
+        public static void setFieldRange(BaseField field, float minval, float maxval)
+        {
+            if (field.uiControlEditor is UI_FloatRange fr)
             {
                 fr.minValue = minval;
                 fr.maxValue = maxval;
             }
 
-            var fe = field.uiControlEditor as UI_FloatEdit;
-
-            if (fe != null)
+            if (field.uiControlEditor is UI_FloatEdit fe)
             {
                 fe.minValue = minval;
                 fe.maxValue = maxval;
             }
         }
 
-        public static void updateAttachedPartPos (AttachNode node, Part part)
+        public static void updateAttachedPartPos (AttachNode node, Part part, Vector3 oldPosWorld)
         {
-            if (node == null || part == null)
+            if (node is AttachNode && part is Part && 
+                node.attachedPart is Part ap && ap.FindAttachNodeByPart(part) is AttachNode an)
             {
-                return;
-            }
+                if (HighLogic.LoadedSceneIsFlight)
+                    Debug.LogWarning($"[PF] PF Utilities Attempting to Update a Part Position during Flight Scene!\n{StackTraceUtility.ExtractStackTrace()}");
 
-            var ap = node.attachedPart;
+                var dp = part.transform.TransformPoint(node.position) - oldPosWorld;
 
-            if (!ap)
-            {
-                return;
-            }
-
-            var an = ap.FindAttachNodeByPart (part);
-
-            if (an == null)
-            {
-                return;
-            }
-
-            var dp = part.transform.TransformPoint (node.position) - ap.transform.TransformPoint (an.position);
-
-            if (ap == part.parent)
-            {
-                while (ap.parent) ap = ap.parent;
-                ap.transform.position += dp;
-                part.transform.position -= dp;
-            }
-            else
-            {
-                ap.transform.position += dp;
+                if (ap == part.parent)
+                {
+                    while (ap.parent) ap = ap.parent;
+                    ap.transform.Translate(dp, Space.World);
+                    part.transform.Translate(-dp, Space.World);
+                }
+                else
+                {
+                    ap.transform.Translate(dp, Space.World);
+                }
             }
         }
 
-        public static string formatMass (float mass)
+        public static void UpdateNode(Part part, AttachNode node, Vector3 newPosition, int size, bool pushAttachments, float attachDiameter = 0)
         {
-            if (mass < 0.01f)
+            if (node is AttachNode)
             {
-                return (mass * 1e3f).ToString ("n3") + "kg";
+                Vector3 oldPosWorld = part.transform.TransformPoint(node.position);
+                node.position = newPosition;
+                node.size = size;
+
+                if (pushAttachments)
+                    PFUtils.updateAttachedPartPos(node, part, oldPosWorld);
+
+                if (node.attachedPart is Part)
+                {
+                    PFUtils.InformAttachedPartNodePositionChanged(node);
+                    PFUtils.InformAttachNodeSizeChanged(node, attachDiameter > 0 ? attachDiameter : Mathf.Max(node.size, 0.01f));
+                }
             }
-
-            return mass.ToString("n3") + "t";
         }
 
-        public static string formatCost (float cost)
+        public static void InformAttachedPartNodePositionChanged(AttachNode node)
         {
-            return cost.ToString ("n0");
+            if (node is AttachNode && node.attachedPart is Part)
+            {
+                BaseEventDetails baseEventDatum = new BaseEventDetails(0);
+                baseEventDatum.Set("location", node.position);
+                baseEventDatum.Set("orientation", node.orientation);
+                baseEventDatum.Set("secondaryAxis", node.secondaryAxis);
+                baseEventDatum.Set("node", node);
+
+                node.attachedPart.SendEvent("OnPartAttachNodePositionChanged", baseEventDatum);
+            }
         }
+
+        public static void InformAttachNodeSizeChanged(AttachNode node, float diameter, float area=0)
+        {
+            if (node is AttachNode && node.attachedPart is Part)
+            {
+                var data = new BaseEventDetails(BaseEventDetails.Sender.USER);
+                data.Set<AttachNode>("node", node);
+                data.Set<float>("minDia", diameter);
+                data.Set<float>("area", area > 0 ? area : Mathf.PI * diameter * diameter / 4);
+                node.attachedPart.SendEvent("OnPartAttachNodeSizeChanged", data);
+            }
+        }
+
+        public static string formatMass(float mass) => (mass < 0.01) ? $"{mass * 1e3:N3}kg" : $"{mass:N3}t";
+        public static string formatCost(float cost) => $"{cost:N0}";
 
         public static void enableRenderer (Transform t, bool e)
         {
-            if (!t)
-            {
-                return;
-            }
-
-            var r = t.GetComponent<Renderer>();
-
-            if (r)
-            {
+            if (t is Transform && t.GetComponent<Renderer>() is Renderer r)
                 r.enabled = e;
-            }
         }
 
-        public static void hideDragStuff (Part part)
-        {
-            enableRenderer (part.FindModelTransform ("dragOnly"), false);
-        }
+        public static void hideDragStuff(Part part) => enableRenderer(part.FindModelTransform("dragOnly"), false);
 
         public static bool FARinstalled, FARchecked;
 
-        public static bool isFarInstalled ()
+        public static bool isFarInstalled()
         {
             if (!FARchecked)
             {
-                var asmlist = AssemblyLoader.loadedAssemblies;
-
-                if (asmlist != null)
-                {
-                    for (int i = 0; i < asmlist.Count; i++)
-                    {
-                        if (asmlist [i].name == "FerramAerospaceResearch")
-                        {
-                            FARinstalled = true;
-
-                            break;
-                        }
-                    }
-                }
-
+                FARinstalled = AssemblyLoader.loadedAssemblies.Any(a => a.assembly.GetName().Name == "FerramAerospaceResearch");
                 FARchecked = true;
             }
-
             return FARinstalled;
         }
 
-        public static void updateDragCube (Part part, float areaScale)
+        public static void updateDragCube(Part part, float areaScale = 1)
         {
-            if (isFarInstalled ())
+            if (isFarInstalled())
             {
                 Debug.Log ("[PF]: Calling FAR to update voxels...");
-
                 part.SendMessage ("GeometryPartModuleRebuildMeshData");
             }
-
-            if (!HighLogic.LoadedSceneIsFlight)
+            //            if (HighLogic.LoadedSceneIsFlight)
             {
-                return;
+                enableRenderer(part.FindModelTransform("dragOnly"), true);
+                var dragCube = DragCubeSystem.Instance.RenderProceduralDragCube(part);
+                enableRenderer(part.FindModelTransform("dragOnly"), false);
+
+                for (int i = 0; i < 6; ++i)
+                {
+                    dragCube.Area[i] *= areaScale;
+                }
+
+                part.DragCubes.ClearCubes();
+                part.DragCubes.Cubes.Add(dragCube);
+                part.DragCubes.ResetCubeWeights();
+                part.DragCubes.ForceUpdate(true, true, false);
             }
-
-            enableRenderer (part.FindModelTransform ("dragOnly"), true);
-
-            var dragCube = DragCubeSystem.Instance.RenderProceduralDragCube (part);
-
-            enableRenderer (part.FindModelTransform ("dragOnly"), false);
-
-            for (int i = 0; i < 6; ++i)
-            {
-                dragCube.Area [i] *= areaScale;
-            }
-
-            part.DragCubes.ClearCubes ();
-            part.DragCubes.Cubes.Add (dragCube);
-            part.DragCubes.ResetCubeWeights ();
         }
 
         public static IEnumerator<YieldInstruction> updateDragCubeCoroutine (Part part, float areaScale)
         {
             while (true)
             {
-                if (part == null || part.Equals (null))
-                {
-                    yield break;
-                }
-
+                if (part == null) yield break;
+                if (!HighLogic.LoadedSceneIsEditor && !HighLogic.LoadedSceneIsFlight) yield break;
                 if (HighLogic.LoadedSceneIsFlight)
                 {
-                    if (part.vessel == null || part.vessel.Equals (null))
-                    {
-                        yield break;
-                    }
-
+                    if (part.vessel == null) yield break;
                     if (!FlightGlobals.ready || part.packed || !part.vessel.loaded)
                     {
                         yield return new WaitForFixedUpdate ();
-
                         continue;
                     }
-
                     break;
-                }
-
-                if (HighLogic.LoadedSceneIsEditor)
+                } else if (HighLogic.LoadedSceneIsEditor)
                 {
                     yield return new WaitForFixedUpdate ();
-
                     break;
                 }
-
-                yield break;
             }
-
-            PFUtils.updateDragCube (part, areaScale);
-        }
-
-        public static void refreshPartWindow ()
-        {
-            var objs = UnityEngine.Object.FindObjectsOfType<UIPartActionWindow>();
-
-            for (int i = 0; i < objs.Length; i++)
-            {
-                var w = objs [i];
-
-                w.displayDirty = true;
-            }
+            updateDragCube(part, areaScale);
         }
 
         public static Part partFromHit (this RaycastHit hit)
@@ -337,14 +246,10 @@ namespace Keramzit
 
             while (p == null)
             {
-                if (go.transform != null && go.transform.parent != null && go.transform.parent.gameObject != null)
-                {
+                if (go?.transform?.parent?.gameObject != null)
                     go = go.transform.parent.gameObject;
-                }
                 else
-                {
                     break;
-                }
 
                 p = Part.FromGO (go);
             }
@@ -357,15 +262,11 @@ namespace Keramzit
             var children = new List<Part>();
 
             if (!root)
-            {
                 children.Add (rootPart);
-            }
 
-            for (int i = 0; i < rootPart.children.Count; i++)
+            foreach (Part child in rootPart.children)
             {
-                var child = rootPart.children [i];
-
-                children.AddRange (child.getAllChildrenRecursive (false));
+                children.AddRange(child.getAllChildrenRecursive(false));
             }
 
             return children;
@@ -373,22 +274,14 @@ namespace Keramzit
 
         public static float GetMaxValueFromList (List<float> list)
         {
-            float max = 0;
-
-            for (int i = 0; i < list.Count; i++)
-            {
-                if (max < list [i])
-                {
-                    max = list [i];
-                }
-            }
-
+            float max = float.NegativeInfinity;
+            foreach (float f in list)
+                max = Mathf.Max(max, f);
             return max;
         }
     }
 
     [KSPAddon (KSPAddon.Startup.EditorAny, false)]
-
     public class EditorScreenMessager : MonoBehaviour
     {
         static float osdMessageTime;

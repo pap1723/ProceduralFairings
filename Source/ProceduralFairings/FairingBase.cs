@@ -1,52 +1,68 @@
-//  ==================================================
+﻿//  ==================================================
 //  Procedural Fairings plug-in by Alexey Volynskov.
 
 //  Licensed under CC-BY-4.0 terms: https://creativecommons.org/licenses/by/4.0/legalcode
 //  ==================================================
 
+using ProceduralFairings;
 using System;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 namespace Keramzit
 {
-    public class ProceduralFairingBase : PartModule
+    public class ProceduralFairingBase : PartModule, IPartCostModifier, IPartMassModifier
     {
-        [KSPField] public float outlineWidth = 0.05f;
-        [KSPField] public int outlineSlices = 12;
-        [KSPField] public Vector4 outlineColor = new Vector4 (0, 0, 0.2f, 1);
-        [KSPField] public float verticalStep = 0.1f;
-        [KSPField] public float baseSize = 1.25f;
+        public const float MaxCylinderDimension = 50;
+        protected const float verticalStep = 0.1f;
+        public enum BaseMode { Payload, Adapter }
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Extra radius")]
-        [UI_FloatRange (minValue = -1, maxValue = 2, stepIncrement = 0.01f)]
+        [KSPField(isPersistant = true)] public string mode = Enum.GetName(typeof(BaseMode), BaseMode.Payload);
+        public BaseMode Mode => (BaseMode) Enum.Parse(typeof(BaseMode), mode);
+
+        [KSPField] public string minSizeName = "PROCFAIRINGS_MINDIAMETER";
+        [KSPField] public string maxSizeName = "PROCFAIRINGS_MAXDIAMETER";
+
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Base Size", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
+        public float baseSize = 1.25f;
+
+        [KSPField(isPersistant = true, guiName = "Top", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
+        public float topSize = 1.25f;
+
+        [KSPField(isPersistant = true, guiName = "Height", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 50, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
+        public float height = 1;
+
+        [KSPField(isPersistant = true, guiName = "Extra height", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0, maxValue = 50, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
+        public float extraHeight = 0;
+
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Extra radius", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [UI_FloatRange(minValue = -1, maxValue = 2, stepIncrement = 0.01f)]
         public float extraRadius;
 
-        [KSPField] public int circleSegments = 24;
-
-        [KSPField] public float sideThickness = 0.05f;
-
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Fairing Auto-struts")]
-        [UI_Toggle (disabledText = "Off", enabledText = "On")]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Fairing Auto-struts", groupName = PFUtils.PAWGroup)]
+        [UI_Toggle(disabledText = "Off", enabledText = "On")]
         public bool autoStrutSides = true;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Fairing Auto-shape")]
-        [UI_Toggle (disabledText = "Off", enabledText = "On")]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Fairing Auto-shape", groupName = PFUtils.PAWGroup)]
+        [UI_Toggle(disabledText = "Off", enabledText = "On")]
         public bool autoShape = true;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Max. size", guiFormat = "S4", guiUnits = "m")]
-        [UI_FloatEdit (sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Max. size", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
         public float manualMaxSize = 0.625f;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Cyl. start", guiFormat = "S4", guiUnits = "m")]
-        [UI_FloatEdit (sigFigs = 3, unit = "m", minValue = 0, maxValue = 50, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Cyl. start", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0, maxValue = MaxCylinderDimension, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
         public float manualCylStart = 0;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Cyl. end", guiFormat = "S4", guiUnits = "m")]
-        [UI_FloatEdit (sigFigs = 3, unit = "m", minValue = 0, maxValue = 50, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Cyl. end", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0, maxValue = MaxCylinderDimension, incrementLarge = 1.0f, incrementSmall = 0.1f, incrementSlide = 0.001f)]
         public float manualCylEnd = 1;
-
-        bool limitsSet;
 
         [KSPField] public float diameterStepLarge = 1.25f;
         [KSPField] public float diameterStepSmall = 0.125f;
@@ -54,309 +70,693 @@ namespace Keramzit
         [KSPField] public float heightStepLarge = 1.0f;
         [KSPField] public float heightStepSmall = 0.1f;
 
-        public float updateDelay;
+        [KSPField] public int circleSegments = 24;
+        [KSPField] public float sideThickness = 0.05f;
+        [KSPField] public float outlineWidth = 0.05f;
+        [KSPField] public int outlineSlices = 12;
+        [KSPField] public Vector4 outlineColor = new Vector4(0, 0, 0.2f, 1);
+
+        [KSPField] public Vector4 specificMass = new Vector4(0.005f, 0.011f, 0.009f, 0f);
+        [KSPField] public float costPerTonne = 2000;
+        [KSPField] public float specificBreakingForce = 6050;       // Adapter
+        [KSPField] public float specificBreakingTorque = 6050;      // Adapter
+        //[KSPField] public float specificBreakingForce = 1536;     // Payload base
+        //[KSPField] public float specificBreakingTorque = 1536;    // Payload base
+
+        [KSPField] public float decouplerCostMult = 1;              // Mult to costPerTonne when decoupler is enabled
+        [KSPField] public float decouplerCostBase = 0;              // Flat additional cost when decoupler is enabled
+        [KSPField] public float decouplerMassMult = 1;              // Mass multiplier
+        [KSPField] public float decouplerMassBase = 0;              // Flat additional mass (0.001 = 1kg)
+
+        [KSPField(guiActiveEditor = true, guiName = "Mass", groupName = PFUtils.PAWGroup)]
+        public string massDisplay;
+
+        [KSPField(guiActiveEditor = true, guiName = "Cost", groupName = PFUtils.PAWGroup)]
+        public string costDisplay;
+
+        [KSPField(isPersistant = true, guiName = "Decouple When Fairing Gone:", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [UI_Toggle(disabledText = "No", enabledText = "Yes")]
+        public bool autoDecoupleTopNode;
+
+        [KSPField] public string topNodeName = "top1";
+
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Interstage Nodes", groupName = PFUtils.PAWGroup)]
+        [UI_Toggle(disabledText = "Off", enabledText = "On")]
+        public bool showInterstageNodes = true;
+
+        float fairingBaseMass = 0;
+
         public bool needShapeUpdate = true;
-
-        Part topBasePart;
-
-        LineRenderer line;
-
+        private LineRenderer line;
+        private TextMeshPro decouplerHint;
+        private TextMeshPro nonDecouplerHint;
         readonly List<LineRenderer> outline = new List<LineRenderer>();
+        readonly List<ConfigurableJoint> joints = new List<ConfigurableJoint>();
+        public DragCubeUpdater dragCubeUpdater;
+        public ModuleDecouple Decoupler;
 
-        List<ConfigurableJoint> joints = new List<ConfigurableJoint>();
+        float lastBaseSize = -1000;
+        float lastTopSize = -1000;
+        float lastHeight = -1000;
+        float lastExtraHt = -1000;
+        bool lastDecouplerStaged = false;
 
-        public override string GetInfo ()
+        [KSPField] public bool requestLegacyLoad;
+
+        public int TopNodeSize => Mathf.RoundToInt((Mode == BaseMode.Adapter ? topSize : baseSize) / diameterStepLarge);
+        public int BottomNodeSize => Mathf.RoundToInt(baseSize / diameterStepLarge);
+        public int InterstageNodeSize => Math.Max(1, TopNodeSize - 1);
+        public int FairingBaseNodeSize => Math.Max(1, TopNodeSize - 1);
+        public float CalcSideThickness() => Mode == BaseMode.Adapter ? Mathf.Min(sideThickness * Mathf.Max(baseSize, topSize), 0.25f * Mathf.Min(baseSize, topSize)) :
+                                            baseSize * Mathf.Min(sideThickness, 0.25f);
+
+        public ModifierChangeWhen GetModuleCostChangeWhen() => ModifierChangeWhen.FIXED;
+        public ModifierChangeWhen GetModuleMassChangeWhen() => ModifierChangeWhen.FIXED;
+        public float GetModuleCost(float defcost, ModifierStagingSituation sit) => ApplyDecouplerCostModifier(fairingBaseMass * costPerTonne) - defcost;
+        public float GetModuleMass(float defmass, ModifierStagingSituation sit) => ApplyDecouplerMassModifier(fairingBaseMass) - defmass;
+        private float ApplyDecouplerCostModifier(float baseCost) => DecouplerEnabled ? (baseCost * decouplerCostMult) + decouplerCostBase : baseCost;
+        private float ApplyDecouplerMassModifier(float baseMass) => DecouplerEnabled ? (baseMass * decouplerMassMult) + decouplerMassBase : baseMass;
+        private bool DecouplerEnabled => part.FindModuleImplementing<ModuleDecouple>() is ModuleDecouple d && d.stagingEnabled;
+        public override string GetInfo() => "Attach side fairings and they will be shaped for your attached payload.\nRemember to enable the decoupler if you need one.";
+
+        #region KSP Common Callbacks
+
+        public override void OnLoad(ConfigNode node)
         {
-            const string infoString = "Attach side fairings and they will be shaped for your attached payload.\n" + "Remember to enable the decoupler if you need one.";
+            base.OnLoad(node);
+            requestLegacyLoad = !(node.HasValue(nameof(mode)));
+        }
 
-            return infoString;
+        public override void OnAwake()
+        {
+            base.OnAwake();
+
+            if (HighLogic.LoadedSceneIsEditor)
+            {
+                GameEvents.onEditorPartEvent.Add(OnEditorPartEvent);
+                InitializeHintTexts();
+            }
         }
 
         public override void OnStart (StartState state)
         {
-            limitsSet = false;
+            dragCubeUpdater = new DragCubeUpdater(part);
+            Decoupler = part.FindModuleImplementing<ModuleDecouple>();
 
-            if (!HighLogic.LoadedSceneIsEditor && !HighLogic.LoadedSceneIsFlight)
-            {
-                return;
-            }
+            if (requestLegacyLoad)
+                LegacyLoad();
 
-            PFUtils.hideDragStuff (part);
+            if (!HighLogic.LoadedSceneIsEditor && !HighLogic.LoadedSceneIsFlight) return;
 
-            GameEvents.onEditorShipModified.Add (new EventData<ShipConstruct>.OnEvent (onEditorVesselModified));
-
+            PFUtils.hideDragStuff(part);
             if (HighLogic.LoadedSceneIsEditor)
             {
+                ConfigureTechLimits();
                 if (line)
-                {
                     line.transform.Rotate (0, 90, 0);
-                }
 
-                DestroyAllLineRenderers ();
+                DestroyAllLineRenderers();
+                DestroyOutline();
+                InitializeFairingOutline(outlineSlices, outlineColor, outlineWidth);
 
-                destroyOutline ();
+                SetUIChangedCallBacks();
+                SetUIFieldVisibility();
+                SetUIFieldLimits();
+                GameEvents.onPartAttach.Add(OnPartAttach);
+                GameEvents.onPartRemove.Add(OnPartRemove);
+                GameEvents.onVariantApplied.Add(OnPartVariantApplied);
 
-                for (int i = 0; i < outlineSlices; ++i)
-                {
-                    var r = makeLineRenderer ("fairing outline", outlineColor, outlineWidth);
-
-                    outline.Add (r);
-
-                    r.transform.Rotate (0, i * 360f / outlineSlices, 0);
-                }
-
-                ShowHideInterstageNodes ();
-
-                recalcShape ();
-
-                updateDelay = 0.1f;
-
-                needShapeUpdate = true;
+                StartCoroutine(EditorChangeDetector());
             }
             else
             {
-                topBasePart = null;
+                GameEvents.onVesselWasModified.Add(OnVesselModified);
+            }
+            lastBaseSize = baseSize;
+            lastExtraHt = extraHeight;
+            lastTopSize = topSize;
+            lastHeight = height;
+            lastDecouplerStaged = (Decoupler && Decoupler.staged);
+        }
 
-                var adapter = part.GetComponent<ProceduralFairingAdapter>();
+        public override void OnStartFinished(StartState state) 
+        {
+            base.OnStartFinished(state);
+            // Don't update drag cubes before a part has been attached in the editor.
+            UpdatePartProperties();
+            UpdateNodes(false);
+            if (!HighLogic.LoadedSceneIsEditor)
+                dragCubeUpdater.Update();
+            if (HighLogic.LoadedSceneIsEditor)
+                ShowHideInterstageNodes();
+            if (Mode == BaseMode.Adapter)
+                StartCoroutine(HandleAutomaticDecoupling());
+        }
 
-                if (adapter)
+        public void OnDestroy()
+        {
+            GameEvents.onPartAttach.Remove(OnPartAttach);
+            GameEvents.onPartRemove.Remove(OnPartRemove);
+            GameEvents.onVariantApplied.Remove(OnPartVariantApplied);
+            GameEvents.onEditorPartEvent.Remove(OnEditorPartEvent);
+            GameEvents.onVesselWasModified.Remove(OnVesselModified);
+
+            if (line)
+            {
+                Destroy(line.gameObject);
+                line = null;
+            }
+            DestroyAllLineRenderers();
+            DestroyOutline();
+
+            decouplerHint?.gameObject.DestroyGameObject();
+            nonDecouplerHint?.gameObject.DestroyGameObject();
+        }
+        #endregion
+
+        #region Event Callbacks
+        private void OnPartVariantApplied(Part p, PartVariant variant)
+        {
+            if (p == part)
+                StartCoroutine(OnPartVariantAppliedCR());
+        }
+
+        private System.Collections.IEnumerator OnPartVariantAppliedCR()
+        {
+            yield return new WaitForFixedUpdate();
+            if (HighLogic.LoadedSceneIsFlight)
+                UpdateNodes(false);
+            else
+                UpdateShape(false);
+            // PartVariants will only push nodes based on the delta in node.originalPosition
+            // If we keep originalPosition the same, we won't need to re-adjust parts.
+            // NodeNumberTweaker will NOT like that.
+            // But UpdateShape() will regenerate the side fairings and move their mesh?
+        }
+
+        public void OnPartPack() => RemoveJoints();
+
+        public void onShieldingDisabled(List<Part> shieldedParts) => RemoveJoints();
+
+        public void onShieldingEnabled(List<Part> shieldedParts)
+        {
+            if (HighLogic.LoadedSceneIsFlight && autoStrutSides)
+                StartCoroutine(CreateAutoStruts());
+        }
+
+        void OnPartAttach(GameEvents.HostTargetAction<Part, Part> action)
+        {
+            // On loading any craft, the sideFairing knows its shape already.
+            // Thus only need to do this when our attachment state will change.
+            needShapeUpdate = HighLogic.LoadedSceneIsEditor;
+
+            if (action.host == part || action.target == part)
+                ToggleNodeHints(false);
+        }
+
+        void OnPartRemove(GameEvents.HostTargetAction<Part, Part> action)
+        {
+            needShapeUpdate = HighLogic.LoadedSceneIsEditor;
+            StartCoroutine(DisplayFairingOutline());
+
+            if (action.host == part || action.target == part)
+                ToggleNodeHints(true);
+        }
+
+        void OnVesselModified(Vessel v)
+        {
+            if (vessel == v && !part.packed && Mode == BaseMode.Adapter)
+            {
+                if (GetTopPart() == null)
+                    RemoveJoints();
+                StartCoroutine(HandleAutomaticDecoupling());
+            }
+        }
+
+        private void OnEditorPartEvent(ConstructionEventType type, Part part)
+        {
+            if (type == ConstructionEventType.PartCreated && this.part == part)
+                ToggleNodeHints(true);
+        }
+        #endregion
+
+        #region UI
+
+        void SetUIChangedCallBacks()
+        {
+            Fields[nameof(autoShape)].uiControlEditor.onFieldChanged += OnChangeAutoshapeUI;
+            Fields[nameof(autoShape)].uiControlEditor.onSymmetryFieldChanged += OnChangeAutoshapeUI;
+            
+            Fields[nameof(extraRadius)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(extraRadius)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualMaxSize)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualMaxSize)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualCylStart)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualCylStart)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualCylEnd)].uiControlEditor.onFieldChanged += OnChangeShapeUI;
+            Fields[nameof(manualCylEnd)].uiControlEditor.onSymmetryFieldChanged += OnChangeShapeUI;
+
+            Fields[nameof(baseSize)].uiControlEditor.onFieldChanged += OnBaseSizeChanged;
+            Fields[nameof(baseSize)].uiControlEditor.onSymmetryFieldChanged += OnBaseSizeChanged;
+
+            Fields[nameof(topSize)].uiControlEditor.onFieldChanged += OnTopSizeChanged;
+            Fields[nameof(topSize)].uiControlEditor.onSymmetryFieldChanged += OnTopSizeChanged;
+
+            Fields[nameof(height)].uiControlEditor.onFieldChanged += OnHeightChanged;
+            Fields[nameof(height)].uiControlEditor.onSymmetryFieldChanged += OnHeightChanged;
+
+            Fields[nameof(extraHeight)].uiControlEditor.onFieldChanged += OnExtraHeightChanged;
+            Fields[nameof(extraHeight)].uiControlEditor.onSymmetryFieldChanged += OnExtraHeightChanged;
+
+            Fields[nameof(showInterstageNodes)].uiControlEditor.onFieldChanged += OnNodeVisibilityChanged;
+            Fields[nameof(showInterstageNodes)].uiControlEditor.onSymmetryFieldChanged += OnNodeVisibilityChanged;
+        }
+
+        void SetUIFieldVisibility()
+        {
+            Fields[nameof(manualMaxSize)].guiActiveEditor = !autoShape;
+            Fields[nameof(manualCylStart)].guiActiveEditor = !autoShape;
+            Fields[nameof(manualCylEnd)].guiActiveEditor = !autoShape;
+            Fields[nameof(topSize)].guiActiveEditor = Mode == BaseMode.Adapter;
+            Fields[nameof(height)].guiActiveEditor = Mode == BaseMode.Adapter;
+            Fields[nameof(extraHeight)].guiActiveEditor = Mode == BaseMode.Adapter;
+            Fields[nameof(autoDecoupleTopNode)].guiActive = Mode == BaseMode.Adapter;
+            Fields[nameof(autoDecoupleTopNode)].guiActiveEditor = Mode == BaseMode.Adapter;
+            Fields[nameof(showInterstageNodes)].guiActiveEditor = part.FindAttachNodes("interstage") != null;
+        }
+
+        private void SetUIFieldLimits()
+        {
+            UI_FloatEdit start = Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit;
+            UI_FloatEdit end = Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit;
+            start.maxValue = Mathf.Min(manualCylEnd, MaxCylinderDimension - 0.1f);
+            end.minValue = Mathf.Min(manualCylStart, MaxCylinderDimension - 0.1f);
+            bool refresh = manualCylStart > start.maxValue || manualCylEnd < end.minValue;
+            manualCylStart = Mathf.Min(manualCylStart, start.maxValue);
+            manualCylEnd = Mathf.Max(manualCylEnd, end.minValue);
+            if (refresh)
+                MonoUtilities.RefreshPartContextWindow(part);
+        }
+
+        public void OnBaseSizeChanged(BaseField f, object obj)
+        {
+            if (baseSize != lastBaseSize)
+                UpdateShape(true);
+            lastBaseSize = baseSize;
+        }
+
+        public void OnTopSizeChanged(BaseField f, object obj)
+        {
+            if (topSize != lastTopSize)
+                UpdateShape(true);
+            lastTopSize = topSize;
+        }
+
+        public void OnHeightChanged(BaseField f, object obj)
+        {
+            if (height != lastHeight)
+                UpdateShape(true);
+            lastHeight = height;
+        }
+
+        public void OnExtraHeightChanged(BaseField f, object obj)
+        {
+            if (extraHeight != lastExtraHt)
+                UpdateShape(true);
+            lastExtraHt = extraHeight;
+        }
+
+        void OnChangeAutoshapeUI(BaseField bf, object obj)
+        {
+            SetUIFieldVisibility();
+            UpdateShape(true);
+        }
+
+        void OnChangeShapeUI(BaseField bf, object obj) => UpdateShape(true);
+        public void OnNodeVisibilityChanged(BaseField f, object obj) => ShowHideInterstageNodes();
+
+        public void ConfigureTechLimits()
+        {
+            if (PFUtils.canCheckTech())
+            {
+                float minSize = PFUtils.getTechMinValue(minSizeName, 0.25f);
+                float maxSize = PFUtils.getTechMaxValue(maxSizeName, 30);
+
+                PFUtils.setFieldRange(Fields[nameof(baseSize)], minSize, maxSize);
+                (Fields[nameof(baseSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
+                (Fields[nameof(baseSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
+
+                PFUtils.setFieldRange(Fields[nameof(manualMaxSize)], minSize, maxSize * 2);
+                (Fields[nameof(manualMaxSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
+                (Fields[nameof(manualMaxSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
+
+                (Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+                (Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
+                (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+                (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
+
+                (Fields[nameof(extraHeight)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+                (Fields[nameof(extraHeight)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
+
+                PFUtils.setFieldRange(Fields[nameof(topSize)], minSize, maxSize);
+
+                (Fields[nameof(topSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
+                (Fields[nameof(topSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
+
+                (Fields[nameof(height)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+                (Fields[nameof(height)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
+            }
+            else if (HighLogic.LoadedSceneIsEditor && ResearchAndDevelopment.Instance == null)
+            {
+                Debug.LogError($"[PF] ConfigureTechLimits() in Editor but R&D not ready!");
+            }
+        }
+
+        private System.Collections.IEnumerator EditorChangeDetector()
+        {
+            while (HighLogic.LoadedSceneIsEditor)
+            {
+                yield return new WaitForFixedUpdate();
+                if (needShapeUpdate)
+                    UpdateShape(true);
+                needShapeUpdate = false;
+
+                if (baseSize != lastBaseSize)
+                    Fields[nameof(baseSize)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(baseSize)], lastBaseSize);
+                if (topSize != lastTopSize)
+                    Fields[nameof(topSize)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(topSize)], lastTopSize);
+                if (height != lastHeight)
+                    Fields[nameof(height)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(height)], lastHeight);
+                if (extraHeight != lastExtraHt)
+                    Fields[nameof(extraHeight)].uiControlEditor.onFieldChanged.Invoke(Fields[nameof(extraHeight)], lastExtraHt);
+                if (Decoupler && lastDecouplerStaged != Decoupler.stagingEnabled)
                 {
-                    topBasePart = adapter.getTopPart ();
+                    UpdateMassAndCostDisplay();
+                    lastDecouplerStaged = Decoupler.stagingEnabled;
+                }
+            }
+        }
+
+        #endregion
+
+        #region Shape Updaters
+
+        public void UpdateShape(bool pushAttachments)
+        {
+            SetUIFieldLimits();
+            UpdatePartProperties();
+            UpdateNodes(pushAttachments);
+            if (!HighLogic.LoadedSceneIsFlight)
+                recalcShape();
+            dragCubeUpdater.Update();
+            UpdateFairingSideDragCubes();
+        }
+
+        public void UpdateFairingSideDragCubes()
+        {
+            if (part.FindAttachNodes("connect") is AttachNode[] attached)
+            {
+                foreach (AttachNode sn in attached)
+                {
+                    if (sn.attachedPart is Part sp &&
+                        sp.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide sf &&
+                        sf.dragCubeUpdater is DragCubeUpdater)
+                    {
+                        sf.dragCubeUpdater.Update();
+                    }
+                }
+            }
+        }
+
+        public void UpdatePartProperties()
+        {
+            float baseDiameterAdj = baseSize - (2 * CalcSideThickness());
+            float baseRadiusAdj = baseDiameterAdj / 2;
+
+            part.breakingForce = specificBreakingForce * Mathf.Pow(baseRadiusAdj, 2);
+            part.breakingTorque = specificBreakingTorque * Mathf.Pow(baseRadiusAdj, 2);
+            UpdateMassAndCostDisplay();
+
+            if (part.FindModelTransform("model") is Transform model)
+                model.localScale = Vector3.one * baseDiameterAdj;
+            else
+                Debug.LogError("[PF]: No 'model' transform found in part!", this);
+            part.rescaleFactor = baseDiameterAdj;
+        }
+
+        public void UpdateMassAndCostDisplay()
+        {
+            float baseDiameterAdj = baseSize - (2 * CalcSideThickness());
+            fairingBaseMass = (((((specificMass.x * baseDiameterAdj) + specificMass.y) * baseDiameterAdj) + specificMass.z) * baseDiameterAdj) + specificMass.w;
+            massDisplay = PFUtils.formatMass(ApplyDecouplerMassModifier(fairingBaseMass));
+            costDisplay = PFUtils.formatCost(part.partInfo.cost + GetModuleCost(part.partInfo.cost, ModifierStagingSituation.CURRENT));
+        }
+
+        // Sub-functions of UpdateShape()
+        public void UpdateNodes(bool pushAttachments)
+        {
+            float baseDiameterAdj = baseSize - (2 * CalcSideThickness());
+            float baseRadiusAdj = baseDiameterAdj / 2;
+
+            float topHeight = 0, bottomHeight = 0;
+
+            if (part.FindAttachNode("top") is AttachNode baseTopNode)
+            {
+                UpdateNode(baseTopNode, baseTopNode.originalPosition * baseDiameterAdj, TopNodeSize, pushAttachments);
+                UpdateHintPosForNode(baseTopNode, nonDecouplerHint, isDecoupleableNode: false);
+                topHeight = baseTopNode.position.y;
+            }
+            if (part.FindAttachNode("bottom") is AttachNode bottomNode)
+            {
+                UpdateNode(bottomNode, bottomNode.originalPosition * baseDiameterAdj, BottomNodeSize, pushAttachments);
+                bottomHeight = bottomNode.position.y;
+            }
+            if (Mode == BaseMode.Adapter)
+            {
+                if (part.FindAttachNode(topNodeName) is AttachNode topNode)
+                {
+                    Vector3 newPos = new Vector3(topNode.position.x, height, topNode.position.z);
+                    UpdateNode(topNode, newPos, TopNodeSize, pushAttachments);
+                    UpdateHintPosForNode(topNode, decouplerHint, isDecoupleableNode: true);
+                }
+                else
+                    Debug.LogError($"[PF]: No '{topNodeName}' node in part {part}!");
+            }
+
+            // Adopt Resize interstage handling
+            // ProcAdapter forced incrementing N nodes within height - topHeight.
+            // Change ProcAdapter-type parts to have interstage nodes with height < 1.
+            if (part.FindAttachNodes("interstage") is AttachNode[] internodes)
+            {
+                float nodeScale = Mode == BaseMode.Adapter ? height - topHeight : baseDiameterAdj;
+                foreach (AttachNode node in internodes)
+                {
+                    UpdateNode(node, (node.originalPosition * nodeScale) + (Vector3.up * bottomHeight), InterstageNodeSize, pushAttachments);
+                }
+                ShowHideInterstageNodes();
+            }
+
+            // Let the NumberNodeTweaker push the connect nodes.
+            if (part.FindModuleImplementing<KzNodeNumberTweaker>() is KzNodeNumberTweaker NodeNumberTweaker)
+                NodeNumberTweaker.SetRadius(baseRadiusAdj + CalcSideThickness(), pushAttachments);
+
+            // NNT won't know to adjust position.y, so fix-up.
+            // (Order doesn't matter here, but we're doing two translations.)
+
+            float y = (topHeight + bottomHeight) / 2;
+            if (part.FindAttachNodes("connect") is AttachNode[] fairingSideNodes)
+            {
+                foreach (AttachNode n in fairingSideNodes)
+                {
+                    Vector3 newPos = new Vector3(n.position.x, y, n.position.z);
+                    UpdateNode(n, newPos, FairingBaseNodeSize, pushAttachments);
+                }
+            }
+        }
+
+        public void UpdateNode(AttachNode node, Vector3 newPosition, int size, bool pushAttachments, float attachDiameter = 0)
+        {
+            // Typically the node size is scaled by diameterStepLarge, so just un-scale it for the notification.
+            attachDiameter = (attachDiameter > 0) ? attachDiameter : size / diameterStepLarge;
+            PFUtils.UpdateNode(part, node, newPosition, size, pushAttachments, attachDiameter);
+        }
+
+        private void UpdateHintPosForNode(AttachNode node, TextMeshPro hintObj, bool isDecoupleableNode)
+        {
+            Vector3 hintPos = node.position;
+            float horizTextOffset = node.radius / 2 + hintObj.renderedWidth / 2;
+            horizTextOffset *= isDecoupleableNode ? 1 : -1;    // move text to the left for non-decoupleable nodes
+            var offset = new Vector3(horizTextOffset, 0, 0);
+
+            hintPos += hintObj.transform.rotation * offset;
+            hintObj.transform.localPosition = hintPos;
+        }
+
+        #endregion
+
+        private void LegacyLoad()
+        {
+            ProceduralFairingAdapter adapter = part.FindModuleImplementing<ProceduralFairingAdapter>();
+            mode = adapter ? Enum.GetName(typeof(BaseMode), BaseMode.Adapter) : Enum.GetName(typeof(BaseMode), BaseMode.Payload);
+            Debug.Log($"[PF] LegacyLoad() for {part}, Mode: {Mode}, skipping");
+        }
+
+        public System.Collections.IEnumerator HandleAutomaticDecoupling()
+        {
+            //  We used to remove the engine fairing (if there is any) from topmost node, but lately that's been causing NREs.  
+            //  Since KSP gives us this option nativley, let's just use KSP to do that if we want.
+            if (!HighLogic.LoadedSceneIsFlight) yield break;
+            yield return new WaitForFixedUpdate();
+
+            if (TopNodePartPresent && autoDecoupleTopNode && !FairingPresent)
+            {
+                if (part.FindModuleImplementing<ModuleDecouple>() is ModuleDecouple item)
+                {
+                    RemoveTopPartJoints();
+                    item.Decouple();
                 }
                 else
                 {
-                    var scan = scanPayload ();
+                    Debug.LogError($"[PF]: Cannot decouple from top part! {this}");
+                }
+            }
+            Fields[nameof(autoDecoupleTopNode)].guiActive = Mode == BaseMode.Adapter && TopNodePartPresent;
+        }
 
-                    if (scan.targets.Count > 0)
+        #region Node / Attached Part Utilities
+
+        public Part GetBottomPart() => (part.FindAttachNode("bottom") is AttachNode node) ? node.attachedPart : null;
+        public Part GetTopPart() => (part.FindAttachNode(topNodeName) is AttachNode node) ? node.attachedPart : null;
+        public bool TopNodePartPresent => GetTopPart() is Part;
+        public bool FairingPresent
+        {
+            get
+            {
+                if (part.FindAttachNodes("connect") is AttachNode[] nodes)
+                {
+                    foreach (AttachNode n in nodes)
                     {
-                        topBasePart = scan.targets [0];
+                        if (n.attachedPart is Part p && p.FindModuleImplementing<ProceduralFairingSide>() is ProceduralFairingSide)
+                            return true;
                     }
                 }
+                return false;
             }
-
-            SetUIChangedCallBacks ();
-
-            OnToggleAutoshapeUI ();
         }
-
-        void SetUIChangedCallBacks ()
+        private Part FindTopBasePart()
         {
-            ((UI_Toggle) Fields["autoShape"].uiControlEditor).onFieldChanged += OnChangeAutoshapeUI;
-
-            ((UI_FloatEdit) Fields["manualMaxSize"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
-            ((UI_FloatEdit) Fields["manualCylStart"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
-            ((UI_FloatEdit) Fields["manualCylEnd"].uiControlEditor).onFieldChanged += OnChangeShapeUI;
-        }
-
-        void OnChangeAutoshapeUI (BaseField bf, object obj)
-        {
-            OnToggleAutoshapeUI ();
-
-            needShapeUpdate = true;
-        }
-
-        void OnToggleAutoshapeUI ()
-        {
-            Fields["manualMaxSize"].guiActiveEditor  = !autoShape;
-            Fields["manualCylStart"].guiActiveEditor = !autoShape;
-            Fields["manualCylEnd"].guiActiveEditor   = !autoShape;
-
-            PFUtils.refreshPartWindow ();
-        }
-
-        void OnChangeShapeUI (BaseField bf, object obj)
-        {
-            needShapeUpdate = true;
-        }
-
-        void onEditorVesselModified (ShipConstruct ship)
-        {
-            ShowHideInterstageNodes ();
-
-            needShapeUpdate = true;
-        }
-
-        public void ShowHideInterstageNodes ()
-        {
-            var nnt = part.GetComponent<KzNodeNumberTweaker>();
-
-            if (nnt)
+            Part top = null;
+            if (Mode == BaseMode.Adapter)
             {
-                var nodes = part.FindAttachNodes ("interstage");
+                top = GetTopPart();
+            }
+            else
+            {
+                var scan = ScanPayload();
+                if (scan.targets.Count > 0)
+                    top = scan.targets[0];
+            }
+            return top;
+        }
 
-                if (nodes == null)
+        private bool HasTopOrSideNode()
+        {
+            if (Mode == BaseMode.Payload && ScanPayload() is PayloadScan scan && scan.targets.Count > 0)
+                return true;
+            if (HasNodeComponent<ProceduralFairingSide>(part.FindAttachNodes("connect")) is AttachNode)
+                return true;
+            return false;
+        }
+
+        void SetNodeVisibility(AttachNode node, bool show) => node.position.x = show ? 0 : 10000;
+
+        public void ShowHideInterstageNodes()
+        {
+            if (part.FindAttachNodes("interstage") is AttachNode[] nodes)
+            {
+                foreach (AttachNode node in nodes)
                 {
-                    return;
-                }
-
-                if (nnt.showInterstageNodes)
-                {
-                    for (int i = 0; i < nodes.Length; i++)
-                    {
-                        var node = nodes [i];
-
-                        if (node.attachedPart == null)
-                        {
-                            node.position.x = 0;
-                        }
-                    }
-                }
-                else
-                {
-                    for (int i = 0; i < nodes.Length; i++)
-                    {
-                        var node = nodes [i];
-
-                        if (node.attachedPart == null)
-                        {
-                            node.position.x = 10000;
-                        }
-                    }
+                    if (node.attachedPart == null)
+                        SetNodeVisibility(node, showInterstageNodes);
                 }
             }
         }
 
-        public void removeJoints ()
+        #endregion
+
+        #region Struts and Joints
+
+        private void RemoveJoints()
         {
-            while (joints.Count > 0)
+            foreach (ConfigurableJoint joint in joints)
+                Destroy(joint);
+            joints.Clear();
+        }
+
+        void RemoveTopPartJoints()
+        {
+            if (GetTopPart() is Part topPart && GetBottomPart() is Part bottomPart &&
+                topPart.gameObject.GetComponents<ConfigurableJoint>() is ConfigurableJoint[] components)
             {
-                int i = joints.Count - 1;
-
-                var joint = joints [i]; joints.RemoveAt (i);
-
-                UnityEngine.Object.Destroy (joint);
+                foreach (ConfigurableJoint configurableJoint in components)
+                {
+                    if (configurableJoint.connectedBody == bottomPart.Rigidbody)
+                        Destroy(configurableJoint);
+                }
             }
         }
 
-        public void OnPartPack ()
-        {
-            removeJoints ();
-        }
-
-        ConfigurableJoint addStrut (Part p, Part pp)
-        {
-            if (p == pp)
-            {
-                return null;
-            }
-
-            var rb = pp.Rigidbody;
-
-            if (rb == null || rb == p.Rigidbody)
-            {
-                return null;
-            }
-
-            var joint = p.gameObject.AddComponent<ConfigurableJoint>();
-
-            joint.xMotion = ConfigurableJointMotion.Locked;
-            joint.yMotion = ConfigurableJointMotion.Locked;
-            joint.zMotion = ConfigurableJointMotion.Locked;
-            joint.angularXMotion = ConfigurableJointMotion.Locked;
-            joint.angularYMotion = ConfigurableJointMotion.Locked;
-            joint.angularZMotion = ConfigurableJointMotion.Locked;
-            joint.projectionDistance = 0.1f;
-            joint.projectionAngle = 5;
-            joint.breakForce = p.breakingForce;
-            joint.breakTorque = p.breakingTorque;
-            joint.connectedBody = rb;
-
-            joints.Add (joint);
-
-            return joint;
-        }
-
-        IEnumerator<YieldInstruction> createAutoStruts (List<Part> shieldedParts)
+        private IEnumerator<YieldInstruction> CreateAutoStruts()
         {
             while (!FlightGlobals.ready || vessel.packed || !vessel.loaded)
             {
-                yield return new WaitForFixedUpdate ();
+                yield return new WaitForFixedUpdate();
             }
-
-            var nnt = part.GetComponent<KzNodeNumberTweaker>();
-
-            var attached = part.FindAttachNodes ("connect");
-
-            for (int i = 0; i < nnt.numNodes; ++i)
+            if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt &&
+                part.FindAttachNodes("connect") is AttachNode[] attached)
             {
-                var p = attached [i].attachedPart;
-
-                if (p == null || p.Rigidbody == null)
+                Part topBasePart = FindTopBasePart();
+                for (int i = 0; i < nnt.numNodes; ++i)
                 {
-                    continue;
-                }
-
-                var pp = attached [i > 0 ? i - 1 : nnt.numNodes - 1].attachedPart;
-
-                if (pp == null)
-                {
-                    continue;
-                }
-
-                addStrut (p, pp);
-
-                if (topBasePart != null)
-                {
-                    addStrut (p, topBasePart);
-                }
-            }
-        }
-
-        public void onShieldingDisabled (List<Part> shieldedParts)
-        {
-            removeJoints ();
-        }
-
-        public void onShieldingEnabled (List<Part> shieldedParts)
-        {
-            if (!HighLogic.LoadedSceneIsFlight)
-            {
-                return;
-            }
-
-            if (autoStrutSides)
-            {
-                StartCoroutine(createAutoStruts (shieldedParts));
-            }
-        }
-
-        public virtual void FixedUpdate ()
-        {
-            if (!limitsSet && PFUtils.canCheckTech ())
-            {
-                limitsSet = true;
-
-                float minSize = PFUtils.getTechMinValue ("PROCFAIRINGS_MINDIAMETER", 0.25f);
-                float maxSize = PFUtils.getTechMaxValue ("PROCFAIRINGS_MAXDIAMETER", 30);
-
-                PFUtils.setFieldRange (Fields["manualMaxSize"], minSize, maxSize * 2);
-
-                ((UI_FloatEdit) Fields["manualMaxSize"].uiControlEditor).incrementLarge = diameterStepLarge;
-                ((UI_FloatEdit) Fields["manualMaxSize"].uiControlEditor).incrementSmall = diameterStepSmall;
-
-                ((UI_FloatEdit) Fields["manualCylStart"].uiControlEditor).incrementLarge = heightStepLarge;
-                ((UI_FloatEdit) Fields["manualCylStart"].uiControlEditor).incrementSmall = heightStepSmall;
-                ((UI_FloatEdit) Fields["manualCylEnd"].uiControlEditor).incrementLarge = heightStepLarge;
-                ((UI_FloatEdit) Fields["manualCylEnd"].uiControlEditor).incrementSmall = heightStepSmall;
-            }
-
-            if (!part.packed && topBasePart != null)
-            {
-                var adapter = part.GetComponent<ProceduralFairingAdapter>();
-
-                if (adapter)
-                {
-                    topBasePart = adapter.getTopPart ();
-
-                    if (topBasePart == null)
+                    if (attached[i].attachedPart is Part p && p.Rigidbody &&
+                        attached[i > 0 ? i - 1 : nnt.numNodes - 1].attachedPart is Part pp)
                     {
-                        removeJoints ();
+                        AddStrut(p, pp);
+                        if (topBasePart != null)
+                            AddStrut(p, topBasePart);
                     }
                 }
             }
         }
 
-        LineRenderer makeLineRenderer (string gameObjectName, Color color, float wd)
+        private ConfigurableJoint AddStrut(Part p, Part pp)
+        {
+            if (p && p != pp && p.Rigidbody != pp.Rigidbody && pp.Rigidbody is Rigidbody rb &&
+                p.gameObject.AddComponent<ConfigurableJoint>() is ConfigurableJoint joint)
+            {
+                joint.xMotion = ConfigurableJointMotion.Locked;
+                joint.yMotion = ConfigurableJointMotion.Locked;
+                joint.zMotion = ConfigurableJointMotion.Locked;
+                joint.angularXMotion = ConfigurableJointMotion.Locked;
+                joint.angularYMotion = ConfigurableJointMotion.Locked;
+                joint.angularZMotion = ConfigurableJointMotion.Locked;
+                joint.projectionDistance = 0.1f;
+                joint.projectionAngle = 5;
+                joint.breakForce = p.breakingForce;
+                joint.breakTorque = p.breakingTorque;
+                joint.connectedBody = rb;
+
+                joints.Add(joint);
+                return joint;
+            }
+            return null;
+        }
+
+        #endregion
+
+        #region LineRenderers
+
+        LineRenderer MakeLineRenderer(string gameObjectName, Color color, float wd)
         {
             var o = new GameObject (gameObjectName);
 
@@ -367,7 +767,7 @@ namespace Keramzit
             var lineRenderer = o.AddComponent<LineRenderer>();
 
             lineRenderer.useWorldSpace = false;
-            lineRenderer.material = new Material (Shader.Find ("Legacy Shaders/Particles/Additive"));
+            lineRenderer.material = new Material(Shader.Find("Legacy Shaders/Particles/Additive"));
             lineRenderer.startColor = color;
             lineRenderer.endColor = color;
             lineRenderer.startWidth = wd;
@@ -377,14 +777,11 @@ namespace Keramzit
             return lineRenderer;
         }
 
-        void destroyOutline ()
+        void DestroyOutline()
         {
-            for (int i = 0; i < outline.Count; i++)
-            {
-                Destroy (outline [i].gameObject);
-            }
-
-            outline.Clear ();
+            foreach (LineRenderer r in outline)
+                Destroy(r.gameObject);
+            outline.Clear();
         }
 
         /// <summary>
@@ -392,72 +789,63 @@ namespace Keramzit
         /// Find any already assigned (copied) LineRenderers and delete them.
         /// </summary>
 
-        void DestroyAllLineRenderers ()
+        void DestroyAllLineRenderers()
         {
-            LineRenderer [] lr = FindObjectsOfType<LineRenderer>();
-
-            if (lr != null)
+            foreach (LineRenderer r in FindObjectsOfType<LineRenderer>())
             {
-                for (int i = 0; i < lr.Length; i++)
+                if (r?.transform?.parent?.gameObject is GameObject go &&
+                    (go == this || go == this.gameObject))
                 {
-                    Transform _transform = lr[i].transform;
-
-                    if (_transform != null)
-                    {
-                        Transform _parent = _transform.parent;
-
-                        if (_parent != null)
-                        {
-                            GameObject _gameObject = _parent.gameObject;
-
-                            if (_gameObject)
-                            {
-                                if ((_gameObject.Equals (this) ? true : _gameObject.Equals (gameObject)))
-                                {
-                                    GameObjectExtension.DestroyGameObject (lr [i].gameObject);
-                                }
-                            }
-                        }
-                    }
+                    Destroy(r.gameObject);
                 }
             }
         }
 
-        public void OnDestroy ()
+        #endregion
+
+        #region Fairing Shapes and Outline
+        private void InitializeFairingOutline(int slices, Vector4 color, float width)
         {
-            GameEvents.onEditorShipModified.Remove (new EventData<ShipConstruct>.OnEvent (onEditorVesselModified));
-
-            if (line)
+            for (int i = 0; i < slices; ++i)
             {
-                Destroy (line.gameObject);
-
-                line = null;
+                var r = MakeLineRenderer("fairing outline", color, width);
+                outline.Add(r);
+                r.transform.Rotate(0, i * 360f / slices, 0);
             }
-
-            DestroyAllLineRenderers ();
-
-            destroyOutline ();
         }
 
-        public void Update ()
+        private void InitializeHintTexts()
         {
-            if (HighLogic.LoadedSceneIsEditor)
+            var rotToCamera = new Vector3(0f, Camera.main.transform.rotation.eulerAngles.y, 0f);
+            if (decouplerHint == null)
             {
-                if (updateDelay > 0)
-                {
-                    updateDelay -= Time.deltaTime;
-                }
-                else
-                {
-                    if (needShapeUpdate)
-                    {
-                        needShapeUpdate = false;
-                        updateDelay = 0.1f;
-
-                        recalcShape ();
-                    }
-                }
+                decouplerHint = InitializeHint("attach-node-hint1", "<- This node decouples", rotToCamera, part.transform);
+                decouplerHint.alignment = TextAlignmentOptions.Center;
             }
+
+            if (nonDecouplerHint == null)
+            {
+                nonDecouplerHint = InitializeHint("attach-node-hint2", "This does not decouple ->", rotToCamera, part.transform);
+                nonDecouplerHint.alignment = TextAlignmentOptions.Baseline;
+            }
+        }
+
+        private TextMeshPro InitializeHint(string name, string text, Vector3 rotToCamera, Transform parent)
+        {
+            var o = new GameObject(name);
+            o.transform.localPosition = Vector3.zero;
+            o.transform.localRotation = Quaternion.identity;
+
+            var hint = o.AddComponent<TextMeshPro>();
+            hint.SetText(text);
+            hint.color = Color.green;
+            hint.alpha = 0.75f;
+            hint.fontSize = 2;
+            //hint.alignment = TextAlignmentOptions.Center;
+            hint.enabled = false;
+            hint.gameObject.transform.parent = parent;
+            hint.gameObject.transform.eulerAngles = rotToCamera;
+            return hint;
         }
 
         static public Vector3 [] buildFairingShape (float baseRad, float maxRad, float cylStart, float cylEnd, float noseHeightRatio, Vector4 baseConeShape, Vector4 noseConeShape, int baseConeSegments, int noseConeSegments, Vector4 vertMapping, float mappingScaleY)
@@ -550,39 +938,56 @@ namespace Keramzit
             return shape;
         }
 
-        PayloadScan scanPayload ()
+        private System.Collections.IEnumerator DisplayFairingOutline()
         {
-            //  Scan the payload and build it's profile.
+            yield return new WaitForFixedUpdate();
+            SetFairingOutlineEnabled(!HasTopOrSideNode());
+        }
 
-            var scan = new PayloadScan (part, verticalStep, extraRadius);
+        private void SetFairingOutlineEnabled(bool enabled)
+        {
+            foreach (LineRenderer lr in outline)
+                lr.enabled = enabled;
+        }
 
-            AttachNode node = part.FindAttachNode ("top");
-
-            if (node != null)
+        private void BuildFairingOutline(Vector3[] shape)
+        {
+            foreach (LineRenderer lr in outline)
             {
-                scan.ofs = node.position.y;
-
-                if (node.attachedPart != null)
+                lr.positionCount = shape.Length;
+                for (int i = 0; i < shape.Length; ++i)
                 {
-                    scan.addPart (node.attachedPart, part);
+                    lr.SetPosition(i, new Vector3(shape[i].x, shape[i].y));
                 }
             }
+        }
 
-            AttachNode [] nodes = part.FindAttachNodes ("interstage");
+        private void ToggleNodeHints(bool isVisible)
+        {
+            decouplerHint.enabled = isVisible && Mode == BaseMode.Adapter;
+            nonDecouplerHint.enabled = isVisible && Mode == BaseMode.Adapter;
+        }
+        #endregion
 
-            if (nodes != null)
+
+        private PayloadScan ScanPayload()
+        {
+            //  Scan the payload and build it's profile.
+            var scan = new PayloadScan (part, verticalStep, extraRadius);
+
+            if (part.FindAttachNode("top") is AttachNode node)
             {
-                for (int j = 0; j < nodes.Length; j++)
-                {
-                    node = nodes [j];
+                scan.ofs = node.position.y;
+                if (node.attachedPart != null)
+                    scan.addPart (node.attachedPart, part);
+            }
 
-                    if (node != null)
-                    {
-                        if (node.attachedPart != null)
-                        {
-                            scan.addPart (node.attachedPart, part);
-                        }
-                    }
+            if (part.FindAttachNodes("interstage") is AttachNode[] nodes)
+            {
+                foreach (AttachNode n in nodes)
+                {
+                    if (n.attachedPart != null)
+                        scan.addPart (n.attachedPart, part);
                 }
             }
 
@@ -591,64 +996,62 @@ namespace Keramzit
                 var cp = scan.payload [i];
 
                 //  Add any connected payload parts.
-
                 scan.addPart (cp.parent, cp);
-
-                for (int j = 0; j < cp.children.Count; j++)
+                foreach (Part child in cp.children)
                 {
-                    scan.addPart(cp.children[j], cp);
+                    scan.addPart(child, cp);
                 }
 
                 //  Scan for the part colliders.
-
-                var colls = cp.FindModelComponents<Collider>();
-
-                for (int j = 0; j < colls.Count; j++)
+                foreach (Collider coll in cp.FindModelComponents<Collider>())
                 {
-                    var coll = colls [j];
-
                     //  Skip ladders etc...
-
-                    if (coll.tag != "Untagged")
-                    {
-                        continue;
-                    }
-
-                    scan.addPayload (coll);
+                    if (coll.tag.Equals("Untagged"))
+                        scan.addPayload(coll);
                 }
             }
 
             return scan;
         }
 
-        AttachNode HasNodeComponent<type> (AttachNode [] nodes)
+        AttachNode HasNodeComponent<type>(AttachNode[] nodes)
         {
             if (nodes != null)
             {
-                for (int i = 0; i < nodes.Length; i++)
+                foreach (AttachNode node in nodes)
                 {
-                    var partAttached = nodes [i].attachedPart;
-
-                    if (partAttached == null)
-                    {
-                        continue;
-                    }
-
-                    var comp = partAttached.GetComponent<type>();
-
-                    if (!comp.Equals (null))
-                    {
-                        return nodes [i];
-                    }
+                    if (node.attachedPart is Part p && p.GetComponent<type>() is type)
+                        return node;
                 }
             }
-
             return null;
+        }
+
+        private void FillProfileOutline(PayloadScan scan)
+        {
+            if (line is LineRenderer)
+            {
+                line.positionCount = scan.profile.Count * 2 + 2;
+                float prevRad = 0;
+                int hi = 0;
+                for (int i = 0; i < scan.profile.Count; i++)
+                {
+                    var r = scan.profile[i];
+
+                    line.SetPosition(hi * 2, new Vector3(prevRad, hi * verticalStep + scan.ofs, 0));
+                    line.SetPosition(hi * 2 + 1, new Vector3(r, hi * verticalStep + scan.ofs, 0));
+
+                    hi++; prevRad = r;
+                }
+
+                line.SetPosition(hi * 2, new Vector3(prevRad, hi * verticalStep + scan.ofs, 0));
+                line.SetPosition(hi * 2 + 1, new Vector3(0, hi * verticalStep + scan.ofs, 0));
+            }
         }
 
         public void recalcShape ()
         {
-            var scan = scanPayload ();
+            var scan = ScanPayload ();
 
             //  Check for reversed bases (inline fairings).
 
@@ -656,40 +1059,21 @@ namespace Keramzit
             float topRad = 0;
 
             AttachNode topSideNode = null;
-
             bool isInline = false;
 
-            var adapter = part.GetComponent<ProceduralFairingAdapter>();
-
-            if (adapter)
+            if (Mode == BaseMode.Adapter)
             {
                 isInline = true;
-
-                topY = adapter.height + adapter.extraHeight;
-
-                if (topY < scan.ofs)
-                {
-                    topY = scan.ofs;
-                }
-
-                topRad = adapter.topRadius;
+                topY = Mathf.Max(scan.ofs, height + extraHeight);
+                topRad = (topSize / 2) - CalcSideThickness();
             }
             else if (scan.targets.Count > 0)
             {
                 isInline = true;
-
                 var topBase = scan.targets [0].GetComponent<ProceduralFairingBase>();
-
-                topY = scan.w2l.MultiplyPoint3x4 (topBase.part.transform.position).y;
-
-                if (topY < scan.ofs)
-                {
-                    topY = scan.ofs;
-                }
-
+                topY = Mathf.Max(scan.ofs, scan.w2l.MultiplyPoint3x4(topBase.part.transform.position).y);
                 topSideNode = HasNodeComponent<ProceduralFairingSide>(topBase.part.FindAttachNodes ("connect"));
-
-                topRad = topBase.baseSize * 0.5f;
+                topRad = (topBase.baseSize / 2) - CalcSideThickness();
             }
 
             //  No payload case.
@@ -700,94 +1084,43 @@ namespace Keramzit
             }
 
             //  Fill profile outline (for debugging).
-
-            if (line)
-            {
-                line.positionCount = scan.profile.Count * 2 + 2;
-
-                float prevRad = 0;
-
-                int hi = 0;
-
-                for (int i = 0; i < scan.profile.Count; i++)
-                {
-                    var r = scan.profile [i];
-
-                    line.SetPosition (hi * 2, new Vector3 (prevRad, hi * verticalStep + scan.ofs, 0));
-                    line.SetPosition (hi * 2 + 1, new Vector3 (r, hi * verticalStep + scan.ofs, 0));
-
-                    hi++; prevRad = r;
-                }
-
-                line.SetPosition (hi * 2, new Vector3 (prevRad, hi * verticalStep + scan.ofs, 0));
-                line.SetPosition (hi * 2 + 1, new Vector3 (0, hi * verticalStep + scan.ofs, 0));
-            }
+            FillProfileOutline(scan);
 
             //  Check for attached side parts.
-
             var attached = part.FindAttachNodes ("connect");
-
-            //  Get the number of available fairing attachment nodes from NodeNumberTweaker.
-
-            var nnt = part.GetComponent<KzNodeNumberTweaker>();
-
-            int numSideParts = nnt.numNodes;
-
             var sideNode = HasNodeComponent<ProceduralFairingSide>(attached);
 
-            var baseConeShape = new Vector4 (0, 0, 0, 0);
-            var noseConeShape = new Vector4 (0, 0, 0, 0);
-            var mappingScale = new Vector2 (1024, 1024);
-            var stripMapping = new Vector2 (992, 1024);
-            var horMapping = new Vector4 (0, 480, 512, 992);
-            var vertMapping = new Vector4 (0, 160, 704, 1024);
+            //  Get the number of available fairing attachment nodes from NodeNumberTweaker.
+            var nnt = part.GetComponent<KzNodeNumberTweaker>();
+            int numSideParts = nnt.numNodes;
 
-            float baseCurveStartX = 0;
-            float baseCurveStartY = 0;
-            float baseCurveEndX = 0;
-            float baseCurveEndY = 0;
+            ProceduralFairingSide sf = sideNode?.attachedPart.GetComponent<ProceduralFairingSide>();
 
-            int baseConeSegments = 1;
+            var baseConeShape = sf ? sf.baseConeShape : new Vector4 (0, 0, 0, 0);
+            var noseConeShape = sf ? sf.noseConeShape : new Vector4 (0, 0, 0, 0);
+            var mappingScale = sf ? sf.mappingScale : new Vector2 (1024, 1024);
+            var stripMapping = sf ? sf.stripMapping : new Vector2 (992, 1024);
+            var horMapping = sf ? sf.horMapping : new Vector4 (0, 480, 512, 992);
+            var vertMapping = sf ? sf.vertMapping : new Vector4 (0, 160, 704, 1024);
 
-            float noseCurveStartX = 0;
-            float noseCurveStartY = 0;
-            float noseCurveEndX = 0;
-            float noseCurveEndY = 0;
+            float baseCurveStartX = sf ? sf.baseCurveStartX : 0;
+            float baseCurveStartY = sf ? sf.baseCurveStartY : 0;
+            float baseCurveEndX = sf ? sf.baseCurveEndX : 0;
+            float baseCurveEndY = sf ? sf.baseCurveEndY : 0;
+            int baseConeSegments = sf ? Convert.ToInt32(sf.baseConeSegments) : 1;
 
-            int noseConeSegments = 1;
-            float noseHeightRatio = 1;
-            float minBaseConeAngle = 20;
-
-            float density = 0;
-
-            if (sideNode != null)
-            {
-                var sf = sideNode.attachedPart.GetComponent<ProceduralFairingSide>();
-
-                mappingScale = sf.mappingScale;
-                stripMapping = sf.stripMapping;
-                horMapping = sf.horMapping;
-                vertMapping = sf.vertMapping;
-                noseHeightRatio = sf.noseHeightRatio;
-                minBaseConeAngle = sf.minBaseConeAngle;
-                baseConeShape = sf.baseConeShape;
-                baseCurveStartX = sf.baseCurveStartX;
-                baseCurveStartY = sf.baseCurveStartY;
-                baseCurveEndX = sf.baseCurveEndX;
-                baseCurveEndY = sf.baseCurveEndY;
-                baseConeSegments = (int) sf.baseConeSegments;
-                noseConeShape = sf.noseConeShape;
-                noseCurveStartX = sf.noseCurveStartX;
-                noseCurveStartY = sf.noseCurveStartY;
-                noseCurveEndX = sf.noseCurveEndX;
-                noseCurveEndY = sf.noseCurveEndY;
-                noseConeSegments = (int) sf.noseConeSegments;
-                density = sf.density;
-            }
+            float noseCurveStartX = sf ? sf.noseCurveStartX : 0;
+            float noseCurveStartY = sf ? sf.noseCurveStartY : 0;
+            float noseCurveEndX = sf ? sf.noseCurveEndX : 0;
+            float noseCurveEndY = sf ? sf.noseCurveEndY : 0;
+            int noseConeSegments = sf ? Convert.ToInt32(sf.noseConeSegments) : 1 ;
+            float noseHeightRatio = sf ? sf.noseHeightRatio : 1;
+            float minBaseConeAngle = sf ? sf.minBaseConeAngle : 20;
+            float density = sf ? sf.density : 0;
 
             //   Compute the fairing shape.
 
-            float baseRad = baseSize * 0.5f;
+            float baseRad = (baseSize / 2) - CalcSideThickness();
             float minBaseConeTan = Mathf.Tan (minBaseConeAngle * Mathf.Deg2Rad);
 
             float cylStart = 0;
@@ -798,14 +1131,9 @@ namespace Keramzit
             if (isInline)
             {
                 profTop = Mathf.CeilToInt ((topY - scan.ofs) / verticalStep);
-
-                if (profTop > scan.profile.Count)
-                {
-                    profTop = scan.profile.Count;
-                }
+                profTop = Math.Min(profTop, scan.profile.Count);
 
                 maxRad = 0;
-
                 for (int i = 0; i < profTop; ++i)
                 {
                     maxRad = Mathf.Max (maxRad, scan.profile [i]);
@@ -965,160 +1293,65 @@ namespace Keramzit
                 cylStart = manualCylStart;
                 cylEnd = manualCylEnd;
             }
-
-            if (cylStart > cylEnd)
-            {
-                cylStart = cylEnd;
-            }
+            cylStart = Math.Min(cylStart, cylEnd);
 
             //  Build the fairing shape line.
 
-            Vector3 [] shape;
+            Vector3[] shape = isInline ? buildInlineFairingShape(baseRad, maxRad, topRad, cylStart, cylEnd, topY, baseConeShape, baseConeSegments, vertMapping, mappingScale.y) :
+                                        buildFairingShape(baseRad, maxRad, cylStart, cylEnd, noseHeightRatio, baseConeShape, noseConeShape, baseConeSegments, noseConeSegments, vertMapping, mappingScale.y);
 
-            if (isInline)
-            {
-                shape = buildInlineFairingShape (baseRad, maxRad, topRad, cylStart, cylEnd, topY, baseConeShape, baseConeSegments, vertMapping, mappingScale.y);
-            }
-            else
-            {
-                shape = buildFairingShape (baseRad, maxRad, cylStart, cylEnd, noseHeightRatio, baseConeShape, noseConeShape, baseConeSegments, noseConeSegments, vertMapping, mappingScale.y);
-            }
-
-            if (sideNode == null && topSideNode == null)
-            {
-                //  No side parts - fill fairing outlines.
-
-                for (int j = 0; j < outline.Count; j++)
-                {
-                    var lr = outline [j];
-
-                    lr.positionCount = shape.Length;
-
-                    for (int i = 0; i < shape.Length; ++i)
-                    {
-                        lr.SetPosition (i, new Vector3 (shape [i].x, shape [i].y));
-                    }
-                }
-            }
-            else
-            {
-                for (int j = 0; j < outline.Count; j++)
-                {
-                    var lr = outline [j];
-
-                    lr.positionCount = 0;
-                }
-            }
+            BuildFairingOutline(shape);
+            SetFairingOutlineEnabled(sideNode == null && topSideNode == null);
 
             //  Rebuild the side parts.
 
-            int numSegs = circleSegments / numSideParts;
+            int numSegs = Math.Max(2, circleSegments / numSideParts);
 
-            if (numSegs < 2)
+            foreach (AttachNode sn in attached)
             {
-                numSegs = 2;
+                if (sn.attachedPart is Part sp &&
+                    sp.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide sf2 &&
+                    !sf2.shapeLock &&
+                    sp.FindModelComponent<MeshFilter>("model") is MeshFilter mf)
+                {
+                    var nodePos = sn.position;
+
+                    mf.transform.position = part.transform.position;
+                    mf.transform.rotation = part.transform.rotation;
+
+                    float ra = Mathf.Atan2(-nodePos.z, nodePos.x) * Mathf.Rad2Deg;
+                    mf.transform.Rotate(0, ra, 0);
+
+                    sf2.meshPos = mf.transform.localPosition;
+                    sf2.meshRot = mf.transform.localRotation;
+                    sf2.numSegs = numSegs;
+                    sf2.numSideParts = numSideParts;
+                    sf2.baseRad = baseRad;
+                    sf2.maxRad = maxRad;
+                    sf2.cylStart = cylStart;
+                    sf2.cylEnd = cylEnd;
+                    sf2.topRad = topRad;
+                    sf2.inlineHeight = topY;
+                    sf2.sideThickness = CalcSideThickness();
+                    sf2.baseCurveStartX = baseCurveStartX;
+                    sf2.baseCurveStartY = baseCurveStartY;
+                    sf2.baseCurveEndX = baseCurveEndX;
+                    sf2.baseCurveEndY = baseCurveEndY;
+                    sf2.baseConeSegments = baseConeSegments;
+                    sf2.noseCurveStartX = noseCurveStartX;
+                    sf2.noseCurveStartY = noseCurveStartY;
+                    sf2.noseCurveEndX = noseCurveEndX;
+                    sf2.noseCurveEndY = noseCurveEndY;
+                    sf2.noseConeSegments = noseConeSegments;
+                    sf2.noseHeightRatio = noseHeightRatio;
+                    sf2.density = density;
+
+                    sf2.rebuildMesh();
+                }
             }
 
-            for (int i = 0; i < attached.Length; i++)
-            {
-                var sn = attached [i];
-                var sp = sn.attachedPart;
-
-                if (!sp)
-                {
-                    continue;
-                }
-
-                var sf = sp.GetComponent<ProceduralFairingSide>();
-
-                if (!sf)
-                {
-                    continue;
-                }
-
-                if (sf.shapeLock)
-                {
-                    continue;
-                }
-
-                var mf = sp.FindModelComponent<MeshFilter>("model");
-
-                if (!mf)
-                {
-                    Debug.LogError ("[PF]: No model in side fairing!", sp);
-
-                    continue;
-                }
-
-                var nodePos = sn.position;
-
-                mf.transform.position = part.transform.position;
-                mf.transform.rotation = part.transform.rotation;
-
-                float ra = Mathf.Atan2 (-nodePos.z, nodePos.x) * Mathf.Rad2Deg;
-
-                mf.transform.Rotate (0, ra, 0);
-
-                if (sf.meshPos == mf.transform.localPosition
-                 && sf.meshRot == mf.transform.localRotation
-                 && sf.numSegs == numSegs
-                 && sf.numSideParts == numSideParts
-                 && sf.baseRad.Equals (baseRad)
-                 && sf.maxRad.Equals (maxRad)
-                 && sf.cylStart.Equals (cylStart)
-                 && sf.cylEnd.Equals (cylEnd)
-                 && sf.topRad.Equals (topRad)
-                 && sf.inlineHeight.Equals (topY)
-                 && sf.sideThickness.Equals (sideThickness)
-                 && !sf.baseCurveStartX.Equals (baseCurveStartX)
-                 && !sf.baseCurveStartY.Equals (baseCurveStartY)
-                 && !sf.baseCurveEndX.Equals (baseCurveEndX)
-                 && !sf.baseCurveEndY.Equals (baseCurveEndY)
-                 && !sf.baseConeSegments.Equals (baseConeSegments)
-                 && !sf.noseCurveStartX.Equals (noseCurveStartX)
-                 && !sf.noseCurveStartY.Equals (noseCurveStartY)
-                 && !sf.noseCurveEndX.Equals (noseCurveEndX)
-                 && !sf.noseCurveEndY.Equals (noseCurveEndY)
-                 && !sf.noseConeSegments.Equals (noseConeSegments)
-                 && !sf.noseHeightRatio.Equals (noseHeightRatio)
-                 && !sf.density.Equals (density))
-                {
-                    continue;
-                }
-
-                sf.meshPos = mf.transform.localPosition;
-                sf.meshRot = mf.transform.localRotation;
-                sf.numSegs = numSegs;
-                sf.numSideParts = numSideParts;
-                sf.baseRad = baseRad;
-                sf.maxRad = maxRad;
-                sf.cylStart = cylStart;
-                sf.cylEnd = cylEnd;
-                sf.topRad = topRad;
-                sf.inlineHeight = topY;
-                sf.sideThickness = sideThickness;
-                sf.baseCurveStartX = baseCurveStartX;
-                sf.baseCurveStartY = baseCurveStartY;
-                sf.baseCurveEndX = baseCurveEndX;
-                sf.baseCurveEndY = baseCurveEndY;
-                sf.baseConeSegments = baseConeSegments;
-                sf.noseCurveStartX = noseCurveStartX;
-                sf.noseCurveStartY = noseCurveStartY;
-                sf.noseCurveEndX = noseCurveEndX;
-                sf.noseCurveEndY = noseCurveEndY;
-                sf.noseConeSegments = noseConeSegments;
-                sf.noseHeightRatio = noseHeightRatio;
-                sf.density = density;
-
-                sf.rebuildMesh ();
-            }
-
-            var shielding = part.GetComponent<KzFairingBaseShielding>();
-
-            if (shielding)
-            {
+            if (part.GetComponent<KzFairingBaseShielding>() is KzFairingBaseShielding shielding)
                 shielding.reset ();
-            }
         }
     }
 }

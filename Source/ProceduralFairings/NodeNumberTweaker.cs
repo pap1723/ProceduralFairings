@@ -14,17 +14,17 @@ namespace Keramzit
         [KSPField] public string nodePrefix = "bottom";
         [KSPField] public int maxNumber;
 
-        [KSPField (guiActiveEditor = true, guiName = "Fairing Nodes")]
-        [UI_FloatRange (minValue = 1, maxValue = 8, stepIncrement = 1)]
+        [KSPField(guiActiveEditor = true, guiName = "Fairing Nodes", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
+        [UI_FloatRange(minValue = 1, maxValue = 8, stepIncrement = 1)]
         public float uiNumNodes = 2;
 
-        [KSPField (isPersistant = true)]
+        [KSPField(isPersistant = true)]
         public int numNodes = 2;
 
         int numNodesBefore;
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Node offset", guiFormat = "S4", guiUnits = "m")]
-        [UI_FloatEdit (sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 0.625f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Node offset", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup)]
+        [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 0.625f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
         public float radius = 1.25f;
 
         [KSPField] public float radiusStepLarge = 0.625f;
@@ -32,316 +32,174 @@ namespace Keramzit
 
         [KSPField] public bool shouldResizeNodes = true;
 
+        public int NodeSize => part.FindModuleImplementing<ProceduralFairingBase>() is ProceduralFairingBase fb ? 
+                                    fb.FairingBaseNodeSize : 
+                                    Math.Max(0, Mathf.RoundToInt(radius / radiusStepLarge) - 1);
+
         protected float oldRadius = -1000;
-        protected bool justLoaded;
+        public override string GetInfo() => $"Max Nodes: {maxNumber}";
 
-        public override string GetInfo ()
+        public override void OnStart(StartState state)
         {
-            return "Max. Nodes: " + maxNumber;
-        }
+            base.OnStart(state);
 
-        [KSPField (isPersistant = true, guiActiveEditor = true, guiName = "Interstage Nodes")]
-        [UI_Toggle (disabledText = "Off", enabledText = "On")]
-        public bool showInterstageNodes = true;
-
-        public virtual void FixedUpdate ()
-        {
-            if (!radius.Equals (oldRadius))
-            {
-                oldRadius = radius;
-
-                updateNodePositions ();
-            }
-
-            justLoaded = false;
-        }
-
-        public void Update ()
-        {
-            if (HighLogic.LoadedSceneIsEditor)
-            {
-                if ((int) uiNumNodes != numNodesBefore)
-                {
-                    if (checkNodeAttachments ())
-                    {
-                        uiNumNodes = numNodesBefore;
-                    }
-                    else
-                    {
-                        numNodes = (int) uiNumNodes;
-                        numNodesBefore = numNodes;
-
-                        updateNodes ();
-
-                        bool removed = false;
-
-                        for (int i = numNodes + 1; i <= maxNumber; ++i)
-                        {
-                            var node = findNode (i);
-
-                            if (node == null)
-                            {
-                                continue;
-                            }
-
-                            //  Fix for ghost node when inserting a new PF base in
-                            //  the editor scene: do not delete unused nodes, move
-                            //  them away instead. Be careful to check references
-                            //  of the maximum number of nodes, mentioned elsewhere
-                            //  and retrieved via 'Findattachnodes("connect")'!
-                            //  Slightly hacky, but it works...
-
-                            HideUnusedNode (node);
-
-                            removed = true;
-                        }
-
-                        if (removed)
-                        {
-                            var fbase = part.GetComponent<ProceduralFairingBase>();
-
-                            if (fbase)
-                            {
-                                fbase.needShapeUpdate = true;
-                                fbase.updateDelay = 0.5f;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        //  Slightly hacky...but it removes the ghost nodes.
-
-        void HideUnusedNode (AttachNode node)
-        {
-            node.position.x = 10000;
-        }
-
-        public override void OnStart (StartState state)
-        {
-            base.OnStart (state);
-
-            if (state == StartState.None)
-            {
-                return;
-            }
-
-            ((UI_FloatEdit) Fields["radius"].uiControlEditor).incrementLarge = radiusStepLarge;
-            ((UI_FloatEdit) Fields["radius"].uiControlEditor).incrementSmall = radiusStepSmall;
-
-            Fields["radius"].guiActiveEditor = shouldResizeNodes;
-
-            //  Hide the interstage toggle button if there are no interstage nodes.
-
-            var nodes = part.FindAttachNodes ("interstage");
-
-            if (nodes == null)
-            {
-                Fields["showInterstageNodes"].guiActiveEditor = false;
-            }
+            (Fields[nameof(radius)].uiControlEditor as UI_FloatEdit).incrementLarge = radiusStepLarge;
+            (Fields[nameof(radius)].uiControlEditor as UI_FloatEdit).incrementSmall = radiusStepSmall;
+            Fields[nameof(radius)].guiActiveEditor = shouldResizeNodes;
+            Fields[nameof(radius)].uiControlEditor.onFieldChanged += OnRadiusChanged;
+            Fields[nameof(radius)].uiControlEditor.onSymmetryFieldChanged += OnRadiusChanged;
 
             //  Change the GUI text if there are no fairing attachment nodes.
+            if (part.FindAttachNodes("connect") == null)
+                Fields[nameof(uiNumNodes)].guiName = "Side Nodes";
 
-            nodes = part.FindAttachNodes ("connect");
-
-            if (nodes == null)
-            {
-                Fields["uiNumNodes"].guiName = "Side Nodes";
-            }
-
-            ((UI_FloatRange) Fields["uiNumNodes"].uiControlEditor).maxValue = maxNumber;
+            (Fields[nameof(uiNumNodes)].uiControlEditor as UI_FloatRange).maxValue = maxNumber;
+            Fields[nameof(uiNumNodes)].uiControlEditor.onFieldChanged += OnNumNodesChanged;
+            Fields[nameof(uiNumNodes)].uiControlEditor.onSymmetryFieldChanged += OnNumNodesChanged;
 
             uiNumNodes = numNodes;
             numNodesBefore = numNodes;
-
-            updateNodes ();
         }
 
-        public override void OnLoad (ConfigNode cfg)
+        public override void OnStartFinished(StartState state)
         {
-            base.OnLoad (cfg);
+            base.OnStartFinished(state);
+            ResetNodePositions(false);
+            if (HighLogic.LoadedSceneIsEditor)
+                StartCoroutine(EditorChangeDetector());
+        }
 
-            justLoaded = true;
+        public void ResetNodePositions(bool pushAttachments)
+        {
+            AddRemoveNodes();
+            UpdateNodePositions(pushAttachments);
+        }
 
-            uiNumNodes = numNodes;
-            numNodesBefore = numNodes;
-
-            if (HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
+        private System.Collections.IEnumerator EditorChangeDetector()
+        {
+            while (HighLogic.LoadedSceneIsEditor)
             {
-                updateNodes ();
+                yield return new WaitForFixedUpdate();
+                if (radius != oldRadius)
+                    OnRadiusChanged(Fields[nameof(radius)], oldRadius);
+
+                if (Convert.ToInt32(uiNumNodes) != numNodesBefore)
+                    OnNumNodesChanged(Fields[nameof(uiNumNodes)], numNodesBefore);
             }
         }
 
-        void updateNodes ()
+        public void OnRadiusChanged(BaseField f, object obj)
         {
-            addRemoveNodes ();
-
-            updateNodePositions ();
+            UpdateNodePositions(true);
+            oldRadius = radius;
         }
 
-        string nodeName (int i)
+        public void OnNumNodesChanged(BaseField f, object obj)
         {
-            return string.Format ("{0}{1:d2}", nodePrefix, i);
+            if (checkNodeAttachments())
+            {
+                uiNumNodes = numNodesBefore;
+            }
+            else
+            {
+                numNodes = Convert.ToInt32(uiNumNodes);
+                numNodesBefore = numNodes;
+                AddRemoveNodes();
+                UpdateNodePositions(true);
+            }
         }
 
-        AttachNode findNode (int i)
+        public void SetRadius(float rad, bool pushAttachments)
         {
-            return part.FindAttachNode (nodeName (i));
+            radius = rad;
+            UpdateNodePositions(pushAttachments);
+            oldRadius = radius;
         }
+
+        string nodeName(int i) => $"{nodePrefix}{i:d2}";
+        AttachNode findNode(int i) => part.FindAttachNode(nodeName(i));
+        void SetNodeVisibility(AttachNode node, bool show) => node.position.x = show ? 0 : 10000;
 
         bool checkNodeAttachments()
         {
             for (int i = 1; i <= maxNumber; ++i)
             {
-                var node = findNode (i);
-
-                if (node != null && node.attachedPart != null)
+                if (findNode(i) is AttachNode node && node.attachedPart is Part)
                 {
-                    EditorScreenMessager.showMessage ("Please detach any fairing parts before changing the number of nodes!", 1);
-
+                    EditorScreenMessager.showMessage("Please detach any fairing parts before changing the number of nodes!", 1);
                     return true;
                 }
             }
-
             return false;
         }
 
-        void addRemoveNodes ()
+        private AttachNode GetExemplarNode()
         {
-            part.stackSymmetry = numNodes - 1;
+            for (int i = 1; i <= maxNumber; ++i)
+            {
+                if (findNode(i) is AttachNode node)
+                    return node;
+            }
 
-            float y = 0;
+            if (part.FindAttachNode("bottom") is AttachNode node2)
+                return node2;
+            return null;
+        }
 
-            bool gotY = false;
-
-            int nodeSize = 0;
-
-            Vector3 dir = Vector3.up;
-
+        private void AddRemoveNodes()
+        {
+            AttachNode exemplar = GetExemplarNode();
+            float y = exemplar is AttachNode ? exemplar.position.y : 0;
+            int nodeSize = exemplar is AttachNode ? exemplar.size : NodeSize;
+            Vector3 dir = exemplar is AttachNode ? exemplar.orientation : Vector3.up;
+            Vector3 pos = new Vector3(radius, y, 0);
             int i;
-
-            for (i = 1; i <= maxNumber; ++i)
-            {
-                var node = findNode (i);
-
-                if (node == null)
-                {
-                    continue;
-                }
-
-                y = node.position.y;
-                nodeSize = node.size;
-                dir = node.orientation;
-
-                gotY = true;
-
-                break;
-            }
-
-            if (!gotY)
-            {
-                var node = part.FindAttachNode ("bottom");
-
-                if (node != null)
-                {
-                    y = node.position.y;
-                }
-            }
+            part.stackSymmetry = numNodes - 1;
 
             for (i = 1; i <= numNodes; ++i)
             {
-                var node = findNode (i);
-
-                if (node != null)
+                if (findNode(i) == null)
                 {
-                    continue;
+                    //  Create the fairing attachment node.
+                    AttachNode node = new AttachNode
+                    {
+                        id = nodeName(i),
+                        owner = part,
+                        nodeType = AttachNode.NodeType.Stack,
+                        position = pos,
+                        orientation = dir,
+                        originalPosition = pos,
+                        originalOrientation = dir,
+                        size = nodeSize
+                    };
+
+                    part.attachNodes.Add(node);
                 }
-
-                //  Create the fairing attachment node.
-
-                node = new AttachNode ();
-
-                node.id = nodeName (i);
-                node.owner = part;
-                node.nodeType = AttachNode.NodeType.Stack;
-                node.position = new Vector3 (0, y, 0);
-                node.orientation = dir;
-                node.originalPosition = node.position;
-                node.originalOrientation = node.orientation;
-                node.size = nodeSize;
-
-                part.attachNodes.Add (node);
             }
 
             for (; i <= maxNumber; ++i)
             {
-                var node = findNode (i);
-
-                if (node == null)
+                if (findNode(i) is AttachNode node2)
                 {
-                    continue;
+                    if (HighLogic.LoadedSceneIsEditor)
+                        SetNodeVisibility(node2, false);
+                    else
+                        part.attachNodes.Remove(node2);
                 }
-
-                if (HighLogic.LoadedSceneIsEditor)
-                {
-                    node.position.x = 10000;
-                }
-                else
-                {
-                    part.attachNodes.Remove (node);
-                }
-            }
-
-            var fbase = part.GetComponent<ProceduralFairingBase>();
-
-            if (fbase)
-            {
-                fbase.needShapeUpdate = true;
             }
         }
 
-        void updateNodePositions ()
+        private void UpdateNodePositions(bool pushAttachments)
         {
-            float d = Mathf.Sin (Mathf.PI / numNodes) * radius * 2;
-
-            int size = Mathf.RoundToInt (d / (radiusStepLarge * 2));
-
             for (int i = 1; i <= numNodes; ++i)
             {
-                var node = findNode (i);
-
-                if (node == null)
+                if (findNode(i) is AttachNode node)
                 {
-                    continue;
+                    float a = Mathf.PI * 2 * (i - 1) / numNodes;
+                    Vector3 newPos = new Vector3(Mathf.Cos(a) * radius, node.position.y, Mathf.Sin(a) * radius);
+                    PFUtils.UpdateNode(part, node, newPos, NodeSize, pushAttachments);
+                    node.originalPosition = new Vector3(Mathf.Cos(a), node.position.y, Mathf.Sin(a));
                 }
-
-                float a = Mathf.PI * 2 * (i - 1) / numNodes;
-
-                node.position.x = Mathf.Cos (a) * radius;
-                node.position.z = Mathf.Sin (a) * radius;
-
-                if (shouldResizeNodes)
-                {
-                    node.size = size;
-                }
-
-                if (!justLoaded)
-                {
-                    PFUtils.updateAttachedPartPos (node, part);
-                }
-            }
-
-            for (int i = numNodes + 1; i <= maxNumber; ++i)
-            {
-                var node = findNode (i);
-
-                if (node == null)
-                {
-                    continue;
-                }
-
-                node.position.x = 10000;
             }
         }
     }

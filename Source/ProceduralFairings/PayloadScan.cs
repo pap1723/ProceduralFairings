@@ -42,49 +42,32 @@ namespace Keramzit
 
         public void addPart (Part p, Part prevPart)
         {
-            if (p == null || hash.Contains (p))
+            if (p is Part && !hash.Contains(p))
             {
-                return;
-            }
+                hash.Add(p);
 
-            hash.Add (p);
-
-            if (p.GetComponent<LaunchClamp>() != null)
-            {
-                return;
-            }
-
-            if (p == prevPart.parent && prevPart.srfAttachNode.attachedPart == p)
-            {
-                return;
-            }
-
-            //  Check for another fairing base.
-
-            if (p.GetComponent<ProceduralFairingBase>() != null && p.GetComponent<ProceduralFairingAdapter>() == null)
-            {
-                AttachNode node = p.FindAttachNode ("top");
-
-                if (node != null && node.attachedPart == prevPart)
+                if (p.GetComponent<LaunchClamp>() == null &&
+                    !(p == prevPart.parent && prevPart.srfAttachNode.attachedPart == p))
                 {
-                    //  Reversed base - potential inline fairing target.
-
-                    if (nestedBases <= 0)
+                    if (p.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fBase && fBase.Mode == ProceduralFairingBase.BaseMode.Payload)
                     {
-                        targets.Add (p);
-
-                        return;
+                        if (p.FindAttachNode("top") is AttachNode node && node.attachedPart == prevPart)
+                        {
+                            //  Reversed base - potential inline fairing target.
+                            if (nestedBases <= 0)
+                            {
+                                targets.Add(p);
+                                return;
+                            }
+                            --nestedBases;
+                        }
+                        else
+                            ++nestedBases;
                     }
 
-                    --nestedBases;
-                }
-                else
-                {
-                    ++nestedBases;
+                    payload.Add(p);
                 }
             }
-
-            payload.Add (p);
         }
 
         public void addPayloadEdge (Vector3 v0, Vector3 v1)

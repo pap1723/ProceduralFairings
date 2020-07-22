@@ -12,179 +12,121 @@ namespace Keramzit
 {
     public class KzFairingBaseShielding : PartModule, IAirstreamShield
     {
-        List<Part> shieldedParts;
-
+        readonly List<Part> shieldedParts = new List<Part>();
         ProceduralFairingSide sideFairing;
 
         float boundCylY0, boundCylY1, boundCylRad;
         float lookupRad;
 
         Vector3 lookupCenter;
-        Vector3 [] shape;
+        Vector3[] shape;
 
-        [KSPField (isPersistant = false, guiActive = true, guiActiveEditor = true, guiName = "Parts shielded")]
+        [KSPField(guiActive = true, guiActiveEditor = true, guiName = "Parts shielded", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
         public int numShieldedDisplay;
 
-        bool needReset;
-
-        public bool ClosedAndLocked () { return true; }
-        public Vessel GetVessel () { return vessel; }
-        public Part GetPart () { return part; }
-
-        public override void OnAwake ()
-        {
-            shieldedParts = new List<Part>();
-        }
+        public bool ClosedAndLocked() => true;
+        public Vessel GetVessel() => vessel;
+        public Part GetPart() => part;
 
         public override void OnStart (StartState state)
         {
-            if (!HighLogic.LoadedSceneIsEditor && !HighLogic.LoadedSceneIsFlight)
+            if (HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
             {
-                return;
+                reset();
+                GameEvents.onVesselWasModified.Add(onVesselModified);
+                GameEvents.onVesselGoOffRails.Add(onVesselUnpack);
+                GameEvents.onPartDie.Add(OnPartDestroyed);
             }
-
-            reset ();
-
-            GameEvents.onVesselWasModified.Add (new EventData<Vessel>.OnEvent (onVesselModified));
-            GameEvents.onVesselGoOffRails.Add (new EventData<Vessel>.OnEvent (onVesselUnpack));
-            GameEvents.onPartDie.Add (new EventData<Part>.OnEvent (OnPartDestroyed));
         }
 
         void OnDestroy ()
         {
-            GameEvents.onVesselWasModified.Remove (new EventData<Vessel>.OnEvent (onVesselModified));
-            GameEvents.onVesselGoOffRails.Remove (new EventData<Vessel>.OnEvent (onVesselUnpack));
-            GameEvents.onPartDie.Remove (new EventData<Part>.OnEvent (OnPartDestroyed));
+            GameEvents.onVesselWasModified.Remove(onVesselModified);
+            GameEvents.onVesselGoOffRails.Remove(onVesselUnpack);
+            GameEvents.onPartDie.Remove(OnPartDestroyed);
         }
 
-        public void FixedUpdate ()
+        public void reset()
         {
-            if (needReset)
+            getFairingParams();
+            if (HighLogic.LoadedSceneIsEditor || (HighLogic.LoadedSceneIsFlight && !vessel.packed))
+                enableShielding();
+        }
+
+        private bool AllFairingSidesAttached()
+        {
+            if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt &&
+                part.FindAttachNodes("connect") is AttachNode[] attached)
             {
-                needReset = false;
-
-                getFairingParams ();
-
-                bool shield = (HighLogic.LoadedSceneIsEditor || (HighLogic.LoadedSceneIsFlight && !vessel.packed));
-
-                if (shield)
+                for (int i=0; i<nnt.numNodes; i++)
                 {
-                    enableShielding ();
+                    if (!(attached[i] is AttachNode n && n.attachedPart && n.attachedPart.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide))
+                        return false;
                 }
+                return true;
             }
-        }
-
-        public void reset ()
-        {
-            needReset = true;
+            return false;
         }
 
         AttachNode [] getFairingParams ()
         {
-            var nnt = part.GetComponent<KzNodeNumberTweaker>();
-
-            //  Check for attached side parts and get their parameters.
-
-            var attached = part.FindAttachNodes ("connect");
-
-            ProceduralFairingSide sf = null;
-
-            for (int i = 0; i < nnt.numNodes; ++i)
+            if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt &&
+                part.FindAttachNodes("connect") is AttachNode[] attached)
             {
-                var n = attached [i];
-
-                if (!n.attachedPart)
+                if (!AllFairingSidesAttached())
                 {
-                    sf = null;
-
-                    break;
+                    shape = null;
+                    sideFairing = null;
+                    boundCylY0 = boundCylY1 = boundCylRad = 0;
+                    lookupCenter = Vector3.zero;
+                    lookupRad = 0;
+                    return null;
                 }
 
-                sf = n.attachedPart.GetComponent<ProceduralFairingSide>();
+                ProceduralFairingSide sf = attached[0].attachedPart.GetComponent<ProceduralFairingSide>();
+                sideFairing = sf;
 
-                if (!sf)
+                //  Get the polyline shape.
+                shape = (sf.inlineHeight <= 0) ?
+                            ProceduralFairingBase.buildFairingShape(sf.baseRad, sf.maxRad, sf.cylStart, sf.cylEnd, sf.noseHeightRatio, sf.baseConeShape, sf.noseConeShape, (int)sf.baseConeSegments, (int)sf.noseConeSegments, sf.vertMapping, sf.mappingScale.y) :
+                            ProceduralFairingBase.buildInlineFairingShape(sf.baseRad, sf.maxRad, sf.topRad, sf.cylStart, sf.cylEnd, sf.inlineHeight, sf.baseConeShape, (int)sf.baseConeSegments, sf.vertMapping, sf.mappingScale.y);
+
+                //  Offset shape by thickness.
+
+                for (int i = 0; i < shape.Length; ++i)
                 {
-                    break;
+                    if (i == 0 || i == shape.Length - 1)
+                    {
+                        shape[i] += new Vector3(sf.sideThickness, 0, 0);
+                    }
+                    else
+                    {
+                        Vector2 n = shape[i + 1] - shape[i - 1];
+                        n.Set(n.y, -n.x);
+                        n.Normalize();
+                        shape[i] += new Vector3(n.x, n.y, 0) * sf.sideThickness;
+                    }
                 }
+
+                //  Compute the bounds.
+
+                boundCylRad = shape[0].x;
+                boundCylY0 = shape[0].y;
+                boundCylY1 = shape[0].y;
+
+                foreach (Vector3 p in shape)
+                {
+                    boundCylRad = Math.Max(boundCylRad, p.x);
+                    boundCylY0 = Math.Min(boundCylY0, p.y);
+                    boundCylY1 = Math.Max(boundCylY1, p.y);
+                }
+
+                lookupCenter = new Vector3(0, (boundCylY0 + boundCylY1) / 2, 0);
+                lookupRad = new Vector2(boundCylRad, (boundCylY1 - boundCylY0) / 2).magnitude;
+
+                return attached;
             }
-
-            sideFairing = sf;
-
-            if (!sf)
-            {
-                shape = null;
-                boundCylY0 = boundCylY1 = boundCylRad = 0;
-                lookupCenter = Vector3.zero;
-                lookupRad = 0;
-
-                return null;
-            }
-
-            //  Get the polyline shape.
-
-            if (sf.inlineHeight <= 0)
-            {
-                shape = ProceduralFairingBase.buildFairingShape (sf.baseRad, sf.maxRad, sf.cylStart, sf.cylEnd, sf.noseHeightRatio, sf.baseConeShape, sf.noseConeShape, (int) sf.baseConeSegments, (int) sf.noseConeSegments, sf.vertMapping, sf.mappingScale.y);
-            }
-            else
-            {
-                shape = ProceduralFairingBase.buildInlineFairingShape (sf.baseRad, sf.maxRad, sf.topRad, sf.cylStart, sf.cylEnd, sf.inlineHeight, sf.baseConeShape, (int) sf.baseConeSegments, sf.vertMapping, sf.mappingScale.y);
-            }
-
-            //  Offset shape by thickness.
-
-            for (int i = 0; i < shape.Length; ++i)
-            {
-                if (i == 0 || i == shape.Length - 1)
-                {
-                    shape [i] += new Vector3 (sf.sideThickness, 0, 0);
-                }
-                else
-                {
-                    Vector2 n = shape [i + 1] - shape [i - 1];
-
-                    n.Set (n.y, -n.x);
-
-                    n.Normalize ();
-
-                    shape [i] += new Vector3 (n.x, n.y, 0) * sf.sideThickness;
-                }
-            }
-
-            //  Compute the bounds.
-
-            float y0, y1, mr;
-
-            y0 = y1 = shape [0].y;
-            mr = shape [0].x;
-
-            for (int i = 0; i < shape.Length; ++i)
-            {
-                var p = shape [i];
-
-                if (p.x > mr)
-                {
-                    mr = p.x;
-                }
-
-                if (p.y < y0)
-                {
-                    y0 = p.y;
-                }
-                else if (p.y > y1)
-                {
-                    y1 = p.y;
-                }
-            }
-
-            boundCylY0 = y0;
-            boundCylY1 = y1;
-            boundCylRad = mr;
-
-            lookupCenter = new Vector3 (0, (y0 + y1) * 0.5f, 0);
-            lookupRad = new Vector2 (mr, (y1 - y0) * 0.5f).magnitude;
-
-            return attached;
+            return null;
         }
 
         void enableShielding ()
@@ -203,15 +145,10 @@ namespace Keramzit
             var parts = new List<Part>();
 
             var colliders = Physics.OverlapSphere (part.transform.TransformPoint (lookupCenter), lookupRad, 1);
-
-            for (int i = colliders.Length - 1; i >= 0; --i)
+            foreach (Collider coll in colliders)
             {
-                var p = colliders [i].gameObject.GetComponentUpwards<Part>();
-
-                if (p != null)
-                {
-                    parts.AddUnique (p);
-                }
+                if (coll.gameObject.GetComponentUpwards<Part>() is Part p)
+                    parts.AddUnique(p);
             }
 
             //  Filter parts.
@@ -241,11 +178,8 @@ namespace Keramzit
 
                 topBounds = new Bounds (new Vector3 (0, boundCylY1, 0), new Vector3 (sideFairing.topRad * 2, sideFairing.sideThickness, sideFairing.topRad * 2));
             }
-
-            for (int pi = 0; pi < parts.Count; ++pi)
+            foreach (Part pt in parts)
             {
-                var pt = parts [pi];
-
                 //  Check special cases.
 
                 if (pt == part)
@@ -364,50 +298,30 @@ namespace Keramzit
             if (isInline && !topClosed)
             {
                 disableShielding ();
-
                 return;
             }
 
             //  Add shielding.
-
-            for (int i = 0; i < shieldedParts.Count; ++i)
-            {
-                shieldedParts [i].AddShield (this);
-            }
+            foreach (Part p in shieldedParts)
+                p.AddShield(this);
 
             numShieldedDisplay = shieldedParts.Count;
 
-            var fbase = part.GetComponent<ProceduralFairingBase>();
-
-            if (fbase != null)
-            {
-                fbase.onShieldingEnabled (shieldedParts);
-            }
+            if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
+                fbase.onShieldingEnabled(shieldedParts);
         }
 
-        void disableShielding ()
+        void disableShielding()
         {
-            if (shieldedParts != null)
+            if (shieldedParts is List<Part>)
             {
-                var fbase = part.GetComponent<ProceduralFairingBase>();
-
-                if (fbase != null)
-                {
-                    fbase.onShieldingDisabled (shieldedParts);
-                }
-
-                for (int i = shieldedParts.Count - 1; i >= 0; --i)
-                {
-                    if (shieldedParts [i] != null)
-                    {
-                        shieldedParts [i].RemoveShield (this);
-                    }
-                }
-
-                shieldedParts.Clear ();
+                if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
+                    fbase.onShieldingDisabled(shieldedParts);
+                foreach (Part p in shieldedParts)
+                    p.RemoveShield(this);
+                shieldedParts.Clear();
+                numShieldedDisplay = shieldedParts.Count;
             }
-
-            numShieldedDisplay = 0;
         }
 
         void onVesselModified (Vessel v)
@@ -428,55 +342,45 @@ namespace Keramzit
         void onVesselUnpack (Vessel v)
         {
             if (v == vessel)
-            {
-                enableShielding ();
-            }
+                enableShielding();
         }
 
         void onVesselPack (Vessel v)
         {
             if (v == vessel)
-            {
-                disableShielding ();
-            }
+                disableShielding();
         }
 
         void OnPartDestroyed (Part p)
         {
-            var nnt = part.GetComponent<KzNodeNumberTweaker>();
-
             if (p == part)
             {
-                disableShielding ();
-
+                disableShielding();
                 return;
             }
 
             //  Check for attached side fairing parts.
 
-            var attached = part.FindAttachNodes ("connect");
-
-            for (int i = 0; i < nnt.numNodes; ++i)
+            if (part.GetComponent<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt &&
+                part.FindAttachNodes("connect") is AttachNode[] attached)
             {
-                if (p == attached [i].attachedPart)
+                for (int i = 0; i < nnt.numNodes; ++i)
                 {
-                    disableShielding ();
-
-                    return;
+                    if (p == attached[i].attachedPart)
+                    {
+                        disableShielding();
+                        return;
+                    }
                 }
             }
 
             //  Check for top parts in the inline/adapter case.
-
             if (p.vessel == vessel && sideFairing && sideFairing.inlineHeight > 0)
             {
                 enableShielding ();
             }
         }
 
-        public void OnPartPack ()
-        {
-            disableShielding ();
-        }
+        public void OnPartPack() => disableShielding();
     }
 }
