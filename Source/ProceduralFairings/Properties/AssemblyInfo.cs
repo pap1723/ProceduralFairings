@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 
 [assembly: AssemblyTitle ("ProceduralFairings")]
 [assembly: AssemblyDescription ("Procedural Fairings for KSP")]
-[assembly: AssemblyCopyright ("Copyright © 2016 - 2020, e-dog, rsparkyc, PhineasFreak")]
+[assembly: AssemblyCopyright ("Copyright © 2016 - 2020, e-dog, rsparkyc, PhineasFreak, KSP-RO group")]
 [assembly: AssemblyConfiguration ("Release")]
 [assembly: AssemblyProduct ("ProceduralFairings")]
 
@@ -25,11 +25,11 @@ using System.Runtime.InteropServices;
 //    • Build Number
 //    • Revision
 
-[assembly: AssemblyVersion ("2.0.0.0")]
-[assembly: AssemblyFileVersion ("2.0.0.0")]
+[assembly: AssemblyVersion ("6.0.0.0")]
+[assembly: AssemblyFileVersion ("6.0.0.0")]
 
 //  The KSPAssembly attribute can be used to ensure that the plugin assemblies
 //  are loaded in the correct order.
 //  This attribute is not currently used but it is included here for completeness.
 
-[assembly: KSPAssembly ("ProceduralFairings", 1, 0)]
+[assembly: KSPAssembly ("ProceduralFairings", 6, 0)]
