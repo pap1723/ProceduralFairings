@@ -964,8 +964,8 @@ namespace Keramzit
 
         private void ToggleNodeHints(bool isVisible)
         {
-            decouplerHint.enabled = isVisible && Mode == BaseMode.Adapter;
-            nonDecouplerHint.enabled = isVisible && Mode == BaseMode.Adapter;
+            decouplerHint.enabled = isVisible && Mode == BaseMode.Adapter && part.FindModuleImplementing<ModuleDecouplerBase>();
+            nonDecouplerHint.enabled = isVisible && Mode == BaseMode.Adapter && part.FindModuleImplementing<ModuleDecouplerBase>();
         }
         #endregion
 
