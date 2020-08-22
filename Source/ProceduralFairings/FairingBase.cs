@@ -583,6 +583,8 @@ namespace Keramzit
 
         private void UpdateHintPosForNode(AttachNode node, TextMeshPro hintObj, bool isDecoupleableNode)
         {
+            if (!HighLogic.LoadedSceneIsEditor) return;
+
             Vector3 hintPos = node.position;
             float horizTextOffset = node.radius / 2 + hintObj.renderedWidth / 2;
             horizTextOffset *= isDecoupleableNode ? 1 : -1;    // move text to the left for non-decoupleable nodes
