@@ -1012,9 +1012,10 @@ namespace Keramzit
                         scan.addPart (n.attachedPart, part);
                 }
             }
-
-            foreach (var cp in scan.payload)
+            for (int i = 0; i < scan.payload.Count; ++i)
             {
+                var cp = scan.payload[i];
+
                 //  Add any connected payload parts.
                 scan.addPart (cp.parent, cp);
                 foreach (Part child in cp.children)
