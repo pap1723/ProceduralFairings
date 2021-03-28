@@ -39,45 +39,6 @@ namespace Keramzit
         public const string PAWGroup = "ProceduralFairings";
         public static bool canCheckTech () => HighLogic.LoadedSceneIsEditor && (ResearchAndDevelopment.Instance != null || (HighLogic.CurrentGame.Mode != Game.Modes.CAREER && HighLogic.CurrentGame.Mode != Game.Modes.SCIENCE_SANDBOX));
 
-        public static bool haveTech (string name)
-        {
-            if (HighLogic.CurrentGame.Mode != Game.Modes.CAREER && HighLogic.CurrentGame.Mode != Game.Modes.SCIENCE_SANDBOX)
-            {
-                return name == "sandbox";
-            }
-
-            return ResearchAndDevelopment.GetTechnologyState (name) == RDTech.State.Available;
-        }
-
-        public static void GetTechLimits(string cfgName, out float minVal, out float maxVal)
-        {
-            minVal = float.PositiveInfinity;
-            maxVal = float.NegativeInfinity;
-            foreach (ConfigNode tech in GameDatabase.Instance.GetConfigNodes(cfgName))
-            {
-                foreach (ConfigNode.Value value in tech.values)
-                {
-                    if (haveTech(value.name))
-                    {
-                        minVal = Mathf.Min(minVal, float.Parse(value.value));
-                        maxVal = Mathf.Max(maxVal, float.Parse(value.value));
-                    }
-                }
-            }
-        }
-
-        public static float getTechMinValue(string cfgname, float defVal)
-        {
-            GetTechLimits(cfgname, out float minVal, out float _);
-            return float.IsPositiveInfinity(minVal) ? defVal : minVal;
-        }
-
-        public static float getTechMaxValue(string cfgname, float defVal)
-        {
-            GetTechLimits(cfgname, out float _, out float maxVal);
-            return float.IsNegativeInfinity(maxVal) ? defVal : maxVal;
-        }
-
         public static void setFieldRange(BaseField field, float minval, float maxval)
         {
             if (field.uiControlEditor is UI_FloatRange fr)
