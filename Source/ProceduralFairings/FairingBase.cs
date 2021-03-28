@@ -7,6 +7,7 @@
 using ProceduralFairings;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 
@@ -16,13 +17,15 @@ namespace Keramzit
     {
         public const float MaxCylinderDimension = 50;
         protected const float verticalStep = 0.1f;
-        public enum BaseMode { Payload, Adapter }
+        public enum BaseMode { Payload, Adapter, Plate, Other }
 
         [KSPField(isPersistant = true)] public string mode = Enum.GetName(typeof(BaseMode), BaseMode.Payload);
         public BaseMode Mode => (BaseMode) Enum.Parse(typeof(BaseMode), mode);
 
-        [KSPField] public string minSizeName = "PROCFAIRINGS_MINDIAMETER";
-        [KSPField] public string maxSizeName = "PROCFAIRINGS_MAXDIAMETER";
+        private const float ABSOLUTE_MIN_SIZE = 0.1f;
+        [KSPField] public float minSize = 1;
+        [KSPField] public float maxSize = 1.5f;
+        public float MaxSize() => Math.Min(maxSize, HighLogic.CurrentGame.Parameters.CustomParams<PFSettings>().maxDiameter);
 
         [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Base Size", guiFormat = "S4", guiUnits = "m", groupName = PFUtils.PAWGroup, groupDisplayName = PFUtils.PAWName)]
         [UI_FloatEdit(sigFigs = 3, unit = "m", minValue = 0.1f, maxValue = 5, incrementLarge = 1.25f, incrementSmall = 0.125f, incrementSlide = 0.001f)]
@@ -127,8 +130,9 @@ namespace Keramzit
         public int BottomNodeSize => Mathf.RoundToInt(baseSize / diameterStepLarge);
         public int InterstageNodeSize => Math.Max(1, TopNodeSize - 1);
         public int FairingBaseNodeSize => Math.Max(1, TopNodeSize - 1);
-        public float CalcSideThickness() => Mode == BaseMode.Adapter ? Mathf.Min(sideThickness * Mathf.Max(baseSize, topSize), 0.25f * Mathf.Min(baseSize, topSize)) :
-                                            baseSize * Mathf.Min(sideThickness, 0.25f);
+        public float CalcSideThickness() => Mode == BaseMode.Adapter ? Mathf.Min(sideThickness * Mathf.Max(baseSize, topSize), 0.25f * Mathf.Min(baseSize, topSize))
+                                            : Mode == BaseMode.Payload ? baseSize * Mathf.Min(sideThickness, 0.25f)
+                                            : 0;
 
         public ModifierChangeWhen GetModuleCostChangeWhen() => ModifierChangeWhen.FIXED;
         public ModifierChangeWhen GetModuleMassChangeWhen() => ModifierChangeWhen.FIXED;
@@ -144,7 +148,8 @@ namespace Keramzit
         public override void OnLoad(ConfigNode node)
         {
             base.OnLoad(node);
-            requestLegacyLoad = !(node.HasValue(nameof(mode)));
+            if (node.name != "CURRENTUPGRADE")
+                requestLegacyLoad = !node.HasValue(nameof(mode));
         }
 
         public override void OnAwake()
@@ -177,7 +182,8 @@ namespace Keramzit
 
                 DestroyAllLineRenderers();
                 DestroyOutline();
-                InitializeFairingOutline(outlineSlices, outlineColor, outlineWidth);
+                if (Mode == BaseMode.Adapter || Mode == BaseMode.Payload)
+                    InitializeFairingOutline(outlineSlices, outlineColor, outlineWidth);
 
                 SetUIChangedCallBacks();
                 SetUIFieldVisibility();
@@ -277,7 +283,8 @@ namespace Keramzit
         void OnPartRemove(GameEvents.HostTargetAction<Part, Part> action)
         {
             needShapeUpdate = HighLogic.LoadedSceneIsEditor;
-            StartCoroutine(DisplayFairingOutline());
+            if (Mode == BaseMode.Adapter || Mode == BaseMode.Payload)
+                StartCoroutine(DisplayFairingOutline());
 
             if (action.host == part || action.target == part)
                 ToggleNodeHints(true);
@@ -343,6 +350,9 @@ namespace Keramzit
             Fields[nameof(autoDecoupleTopNode)].guiActive = Mode == BaseMode.Adapter;
             Fields[nameof(autoDecoupleTopNode)].guiActiveEditor = Mode == BaseMode.Adapter;
             Fields[nameof(showInterstageNodes)].guiActiveEditor = part.FindAttachNodes("interstage") != null;
+            Fields[nameof(extraRadius)].guiActiveEditor = Mode == BaseMode.Adapter || Mode == BaseMode.Payload;
+            Fields[nameof(autoStrutSides)].guiActiveEditor = Mode == BaseMode.Adapter || Mode == BaseMode.Payload;
+            Fields[nameof(autoShape)].guiActiveEditor = Mode == BaseMode.Adapter || Mode == BaseMode.Payload;
         }
 
         private void SetUIFieldLimits()
@@ -397,39 +407,32 @@ namespace Keramzit
 
         public void ConfigureTechLimits()
         {
-            if (PFUtils.canCheckTech())
-            {
-                float minSize = PFUtils.getTechMinValue(minSizeName, 0.25f);
-                float maxSize = PFUtils.getTechMaxValue(maxSizeName, 30);
+            float minSize = Math.Max(this.minSize, ABSOLUTE_MIN_SIZE);
+            float maxSize = MaxSize();
 
-                PFUtils.setFieldRange(Fields[nameof(baseSize)], minSize, maxSize);
-                (Fields[nameof(baseSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
-                (Fields[nameof(baseSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
+            PFUtils.setFieldRange(Fields[nameof(baseSize)], minSize, maxSize);
+            (Fields[nameof(baseSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
+            (Fields[nameof(baseSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
 
-                PFUtils.setFieldRange(Fields[nameof(manualMaxSize)], minSize, maxSize * 2);
-                (Fields[nameof(manualMaxSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
-                (Fields[nameof(manualMaxSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
+            PFUtils.setFieldRange(Fields[nameof(manualMaxSize)], minSize, maxSize * 2);
+            (Fields[nameof(manualMaxSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
+            (Fields[nameof(manualMaxSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
 
-                (Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
-                (Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
-                (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
-                (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
+            (Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+            (Fields[nameof(manualCylStart)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
+            (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+            (Fields[nameof(manualCylEnd)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
 
-                (Fields[nameof(extraHeight)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
-                (Fields[nameof(extraHeight)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
+            (Fields[nameof(extraHeight)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+            (Fields[nameof(extraHeight)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
 
-                PFUtils.setFieldRange(Fields[nameof(topSize)], minSize, maxSize);
+            PFUtils.setFieldRange(Fields[nameof(topSize)], minSize, maxSize);
 
-                (Fields[nameof(topSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
-                (Fields[nameof(topSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
+            (Fields[nameof(topSize)].uiControlEditor as UI_FloatEdit).incrementLarge = diameterStepLarge;
+            (Fields[nameof(topSize)].uiControlEditor as UI_FloatEdit).incrementSmall = diameterStepSmall;
 
-                (Fields[nameof(height)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
-                (Fields[nameof(height)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
-            }
-            else if (HighLogic.LoadedSceneIsEditor && ResearchAndDevelopment.Instance == null)
-            {
-                Debug.LogError($"[PF] ConfigureTechLimits() in Editor but R&D not ready!");
-            }
+            (Fields[nameof(height)].uiControlEditor as UI_FloatEdit).incrementLarge = heightStepLarge;
+            (Fields[nameof(height)].uiControlEditor as UI_FloatEdit).incrementSmall = heightStepSmall;
         }
 
         private System.Collections.IEnumerator EditorChangeDetector()
@@ -526,10 +529,18 @@ namespace Keramzit
                 UpdateHintPosForNode(baseTopNode, nonDecouplerHint, isDecoupleableNode: false);
                 topHeight = baseTopNode.position.y;
             }
-            if (part.FindAttachNode("bottom") is AttachNode bottomNode)
+            if (part.FindAttachNode("bottom") is AttachNode bottomNode &&
+                part.FindAttachNodes("bottom") is AttachNode[] nodes)
             {
                 UpdateNode(bottomNode, bottomNode.originalPosition * baseDiameterAdj, BottomNodeSize, pushAttachments);
                 bottomHeight = bottomNode.position.y;
+
+                // For thrust plate with list of nodes bottom01-bottom16
+                foreach (AttachNode n in nodes.Where(x => x != bottomNode))
+                {
+                    Vector3 newPos = new Vector3(n.position.x, bottomNode.position.y, n.position.z);
+                    UpdateNode(n, newPos, bottomNode.size, pushAttachments);
+                }
             }
             if (Mode == BaseMode.Adapter)
             {
@@ -556,9 +567,16 @@ namespace Keramzit
                 ShowHideInterstageNodes();
             }
 
-            // Let the NumberNodeTweaker push the connect nodes.
-            if (part.FindModuleImplementing<KzNodeNumberTweaker>() is KzNodeNumberTweaker NodeNumberTweaker)
-                NodeNumberTweaker.SetRadius(baseRadiusAdj + CalcSideThickness(), pushAttachments);
+            // Let the NumberNodeTweaker push the connect and/or bottom nodes.
+            if (part.FindModuleImplementing<KzNodeNumberTweaker>() is KzNodeNumberTweaker nnt)
+            {
+                if (Mode == BaseMode.Plate)
+                {
+                    nnt.SetRadius(Math.Min(nnt.radius, baseSize / 2), pushAttachments);
+                    (nnt.Fields[nameof(nnt.radius)].uiControlEditor as UI_FloatEdit).maxValue = baseSize / 2;
+                } else
+                    nnt.SetRadius(baseRadiusAdj + CalcSideThickness(), pushAttachments);
+            }
 
             // NNT won't know to adjust position.y, so fix-up.
             // (Order doesn't matter here, but we're doing two translations.)
@@ -652,7 +670,7 @@ namespace Keramzit
             {
                 top = GetTopPart();
             }
-            else
+            else if (Mode == BaseMode.Payload)
             {
                 var scan = ScanPayload();
                 if (scan.targets.Count > 0)
@@ -845,7 +863,7 @@ namespace Keramzit
             hint.fontSize = 2;
             //hint.alignment = TextAlignmentOptions.Center;
             hint.enabled = false;
-            hint.gameObject.transform.parent = parent;
+            hint.gameObject.transform.SetParent(parent, false);
             hint.gameObject.transform.eulerAngles = rotToCamera;
             return hint;
         }
@@ -966,8 +984,10 @@ namespace Keramzit
 
         private void ToggleNodeHints(bool isVisible)
         {
-            decouplerHint.enabled = isVisible && Mode == BaseMode.Adapter && part.FindModuleImplementing<ModuleDecouplerBase>();
-            nonDecouplerHint.enabled = isVisible && Mode == BaseMode.Adapter && part.FindModuleImplementing<ModuleDecouplerBase>();
+            isVisible &= HighLogic.CurrentGame.Parameters.CustomParams<PFSettings>().showNodeHint
+                         && Mode == BaseMode.Adapter && part.FindModuleImplementing<ModuleDecouplerBase>() is ModuleDecouplerBase;
+            decouplerHint.enabled = isVisible;
+            nonDecouplerHint.enabled = isVisible;
         }
         #endregion
 
@@ -993,10 +1013,8 @@ namespace Keramzit
                 }
             }
 
-            for (int i = 0; i < scan.payload.Count; ++i)
+            foreach (var cp in scan.payload)
             {
-                var cp = scan.payload [i];
-
                 //  Add any connected payload parts.
                 scan.addPart (cp.parent, cp);
                 foreach (Part child in cp.children)
@@ -1053,6 +1071,8 @@ namespace Keramzit
 
         public void recalcShape ()
         {
+            if (Mode != BaseMode.Payload && Mode != BaseMode.Adapter)
+                return;
             var scan = ScanPayload ();
 
             //  Check for reversed bases (inline fairings).
@@ -1089,7 +1109,7 @@ namespace Keramzit
             FillProfileOutline(scan);
 
             //  Check for attached side parts.
-            var attached = part.FindAttachNodes ("connect");
+            var attached = part.FindAttachNodes("connect") ?? new AttachNode[1];
             var sideNode = HasNodeComponent<ProceduralFairingSide>(attached);
 
             //  Get the number of available fairing attachment nodes from NodeNumberTweaker.
