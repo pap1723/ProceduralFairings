@@ -191,6 +191,7 @@ namespace Keramzit
                 GameEvents.onPartAttach.Add(OnPartAttach);
                 GameEvents.onPartRemove.Add(OnPartRemove);
                 GameEvents.onVariantApplied.Add(OnPartVariantApplied);
+                GameEvents.onEditorShipModified.Add(OnEditorShipModified);
 
                 StartCoroutine(EditorChangeDetector());
             }
@@ -226,6 +227,7 @@ namespace Keramzit
             GameEvents.onVariantApplied.Remove(OnPartVariantApplied);
             GameEvents.onEditorPartEvent.Remove(OnEditorPartEvent);
             GameEvents.onVesselWasModified.Remove(OnVesselModified);
+            GameEvents.onEditorShipModified.Remove(OnEditorShipModified);
 
             if (line)
             {
@@ -258,6 +260,13 @@ namespace Keramzit
             // If we keep originalPosition the same, we won't need to re-adjust parts.
             // NodeNumberTweaker will NOT like that.
             // But UpdateShape() will regenerate the side fairings and move their mesh?
+        }
+
+        private void OnEditorShipModified(ShipConstruct ship)
+        {
+            needShapeUpdate = true;
+            if (Mode == BaseMode.Adapter || Mode == BaseMode.Payload)
+                StartCoroutine(DisplayFairingOutline());
         }
 
         public void OnPartPack() => RemoveJoints();
@@ -1070,6 +1079,7 @@ namespace Keramzit
             }
         }
 
+        public bool forcePartPosition = true;
         public void recalcShape ()
         {
             if (Mode != BaseMode.Payload && Mode != BaseMode.Adapter)
@@ -1334,19 +1344,43 @@ namespace Keramzit
             {
                 if (sn.attachedPart is Part sp &&
                     sp.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide sf2 &&
-                    !sf2.shapeLock &&
-                    sp.FindModelComponent<MeshFilter>("model") is MeshFilter mf)
+                    !sf2.shapeLock)
                 {
                     var nodePos = sn.position;
+                    Vector3 oppNodePos = sn.FindOpposingNode() is AttachNode opp ? opp.position : Vector3.zero;
 
-                    mf.transform.position = part.transform.position;
-                    mf.transform.rotation = part.transform.rotation;
+                    sf2.meshPos = Vector3.zero;
+                    sf2.meshRot = Quaternion.identity;
+                    if (forcePartPosition)
+                    {
+                        // place the part on its attachnode.
+                        Vector3 peerPos = part.transform.TransformPoint(sn.position - oppNodePos);
+                        sp.transform.position = peerPos;
 
-                    float ra = Mathf.Atan2(-nodePos.z, nodePos.x) * Mathf.Rad2Deg;
-                    mf.transform.Rotate(0, ra, 0);
+                        // FairingSide model plate:  +X is inward, +Z is up, right-handed coordinates
+                        // FairingSide model's meshFilter.transform.localRotation seems to start non-zero
+                        // FairingSide mesh generation will do +Y up, +X radially out
 
-                    sf2.meshPos = mf.transform.localPosition;
-                    sf2.meshRot = mf.transform.localRotation;
+                        // d is in world space
+                        Vector3 d = part.transform.position - peerPos;
+                        Vector3 worldUp = part.transform.TransformDirection(Vector3.up);
+                        Vector3 norm = Vector3.Cross(worldUp, d);
+
+                        // This rotation will orient the fairingside part s.t. Z+ is up, y+ is radially outward for any placement.
+                        Vector3 sp_local = sp.transform.InverseTransformDirection(norm);
+                        Vector3 sp_local_up = sp.transform.InverseTransformDirection(worldUp);
+                        Quaternion fixPartOrientation1 = Quaternion.LookRotation(sp_local, sp_local_up);
+
+                        // Re-orient the part s.t. Y+ is up, X+ is radially out
+                        sp.transform.rotation *= fixPartOrientation1;
+
+                        // We've re-oriented the part correctly no matter which node it was placed or how it was oriented there.
+                        // Now let's move it into the center.
+                        float off = sn.position.y;
+                        off -= oppNodePos.y;
+                        sf2.meshPos = new Vector3(-norm.magnitude, -off, 0);
+                    }
+
                     sf2.numSegs = numSegs;
                     sf2.numSideParts = numSideParts;
                     sf2.baseRad = baseRad;
