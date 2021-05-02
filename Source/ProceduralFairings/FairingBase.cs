@@ -571,7 +571,10 @@ namespace Keramzit
                 float nodeScale = Mode == BaseMode.Adapter ? height - topHeight : baseDiameterAdj;
                 foreach (AttachNode node in internodes)
                 {
-                    UpdateNode(node, (node.originalPosition * nodeScale) + (Vector3.up * bottomHeight), InterstageNodeSize, pushAttachments);
+                    // Show/Hide hack offsets the node.position by large x/z.  When moving here, only update the y coordinate!
+                    Vector3 newPos = node.position;
+                    newPos.y = ((node.originalPosition * nodeScale) + (Vector3.up * bottomHeight)).y;
+                    UpdateNode(node, newPos, InterstageNodeSize, pushAttachments);
                 }
                 ShowHideInterstageNodes();
             }
