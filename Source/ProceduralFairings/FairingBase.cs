@@ -1346,12 +1346,12 @@ namespace Keramzit
             foreach (AttachNode sn in attached)
             {
                 if (sn.attachedPart is Part sp &&
-                    sp.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide sf2 &&
-                    !sf2.shapeLock)
+                    sp.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide sf2)
                 {
                     var nodePos = sn.position;
                     Vector3 oppNodePos = sn.FindOpposingNode() is AttachNode opp ? opp.position : Vector3.zero;
 
+                    // Move and orient the part regardless of shapelock.
                     sf2.meshPos = Vector3.zero;
                     sf2.meshRot = Quaternion.identity;
                     if (forcePartPosition)
@@ -1384,29 +1384,33 @@ namespace Keramzit
                         sf2.meshPos = new Vector3(-norm.magnitude, -off, 0);
                     }
 
-                    sf2.numSegs = numSegs;
-                    sf2.numSideParts = numSideParts;
-                    sf2.baseRad = baseRad;
-                    sf2.maxRad = maxRad;
-                    sf2.cylStart = cylStart;
-                    sf2.cylEnd = cylEnd;
-                    sf2.topRad = topRad;
-                    sf2.inlineHeight = topY;
-                    sf2.sideThickness = CalcSideThickness();
-                    sf2.baseCurveStartX = baseCurveStartX;
-                    sf2.baseCurveStartY = baseCurveStartY;
-                    sf2.baseCurveEndX = baseCurveEndX;
-                    sf2.baseCurveEndY = baseCurveEndY;
-                    sf2.baseConeSegments = baseConeSegments;
-                    sf2.noseCurveStartX = noseCurveStartX;
-                    sf2.noseCurveStartY = noseCurveStartY;
-                    sf2.noseCurveEndX = noseCurveEndX;
-                    sf2.noseCurveEndY = noseCurveEndY;
-                    sf2.noseConeSegments = noseConeSegments;
-                    sf2.noseHeightRatio = noseHeightRatio;
-                    sf2.density = density;
+                    // Only rebuild the shape if shapelock is not set.
+                    if (!sf2.shapeLock)
+                    {
+                        sf2.numSegs = numSegs;
+                        sf2.numSideParts = numSideParts;
+                        sf2.baseRad = baseRad;
+                        sf2.maxRad = maxRad;
+                        sf2.cylStart = cylStart;
+                        sf2.cylEnd = cylEnd;
+                        sf2.topRad = topRad;
+                        sf2.inlineHeight = topY;
+                        sf2.sideThickness = CalcSideThickness();
+                        sf2.baseCurveStartX = baseCurveStartX;
+                        sf2.baseCurveStartY = baseCurveStartY;
+                        sf2.baseCurveEndX = baseCurveEndX;
+                        sf2.baseCurveEndY = baseCurveEndY;
+                        sf2.baseConeSegments = baseConeSegments;
+                        sf2.noseCurveStartX = noseCurveStartX;
+                        sf2.noseCurveStartY = noseCurveStartY;
+                        sf2.noseCurveEndX = noseCurveEndX;
+                        sf2.noseCurveEndY = noseCurveEndY;
+                        sf2.noseConeSegments = noseConeSegments;
+                        sf2.noseHeightRatio = noseHeightRatio;
+                        sf2.density = density;
 
-                    sf2.rebuildMesh();
+                        sf2.rebuildMesh();
+                    }
                 }
             }
 
