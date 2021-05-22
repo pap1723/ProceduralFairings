@@ -151,9 +151,8 @@ namespace Keramzit
         public override void OnStart (StartState state)
         {
             dragCubeUpdater = new DragCubeUpdater(part);
-
-            // Delay rebuilding the mesh in the Editor, so the original model comes out of the part picker
-            if (HighLogic.LoadedSceneIsEditor)
+            // If part is pulled from the picker (ie prefab), delay mesh rebuilding.
+            if (HighLogic.LoadedSceneIsEditor && part.parent == null)
                 part.OnEditorAttach += OnPartEditorAttach;
             else 
                 rebuildMesh();
