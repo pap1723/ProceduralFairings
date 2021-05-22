@@ -59,6 +59,9 @@ namespace Keramzit
 
             uiNumNodes = numNodes;
             numNodesBefore = numNodes;
+
+            if (HighLogic.LoadedSceneIsEditor)
+                GameEvents.onVariantApplied.Add(OnPartVariantApplied);
         }
 
         public override void OnStartFinished(StartState state)
@@ -67,6 +70,17 @@ namespace Keramzit
             ResetNodePositions(false);
             if (HighLogic.LoadedSceneIsEditor)
                 StartCoroutine(EditorChangeDetector());
+        }
+
+        public void OnDestroy()
+        {
+            GameEvents.onVariantApplied.Remove(OnPartVariantApplied);
+        }
+
+        private void OnPartVariantApplied(Part p, PartVariant variant)
+        {
+            if (p == part)
+                ResetNodePositions(false);
         }
 
         public void ResetNodePositions(bool pushAttachments)
