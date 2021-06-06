@@ -1369,13 +1369,7 @@ namespace Keramzit
                         Vector3 worldUp = part.transform.TransformDirection(Vector3.up);
                         Vector3 norm = Vector3.Cross(worldUp, d);
 
-                        // This rotation will orient the fairingside part s.t. Z+ is up, y+ is radially outward for any placement.
-                        Vector3 sp_local = sp.transform.InverseTransformDirection(norm);
-                        Vector3 sp_local_up = sp.transform.InverseTransformDirection(worldUp);
-                        Quaternion fixPartOrientation1 = Quaternion.LookRotation(sp_local, sp_local_up);
-
-                        // Re-orient the part s.t. Y+ is up, X+ is radially out
-                        sp.transform.rotation *= fixPartOrientation1;
+                        sp.transform.rotation = Quaternion.LookRotation(norm, worldUp);
 
                         // We've re-oriented the part correctly no matter which node it was placed or how it was oriented there.
                         // Now let's move it into the center.
