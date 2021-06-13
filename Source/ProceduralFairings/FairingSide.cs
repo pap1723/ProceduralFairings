@@ -516,6 +516,7 @@ namespace Keramzit
             float x = Mathf.Cos(Mathf.Deg2Rad * anglePerPart / 2);
             Vector3 offset = new Vector3(maxRad * (1 + x) / 2, topY * 0.5f, 0);
             part.CoMOffset = part.transform.InverseTransformPoint(mf.transform.TransformPoint(offset));
+            part.CoLOffset = part.CoMOffset;
 
             RebuildColliders(shape, dirs);
 
