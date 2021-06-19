@@ -4,7 +4,6 @@
 //  Licensed under CC-BY-4.0 terms: https://creativecommons.org/licenses/by/4.0/legalcode
 //  ==================================================
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -168,54 +167,6 @@ namespace Keramzit
                 part.DragCubes.ResetCubeWeights();
                 part.DragCubes.ForceUpdate(true, true, false);
             }
-        }
-
-        public static IEnumerator<YieldInstruction> updateDragCubeCoroutine (Part part, float areaScale)
-        {
-            while (true)
-            {
-                if (part == null) yield break;
-                if (!HighLogic.LoadedSceneIsEditor && !HighLogic.LoadedSceneIsFlight) yield break;
-                if (HighLogic.LoadedSceneIsFlight)
-                {
-                    if (part.vessel == null) yield break;
-                    if (!FlightGlobals.ready || part.packed || !part.vessel.loaded)
-                    {
-                        yield return new WaitForFixedUpdate ();
-                        continue;
-                    }
-                    break;
-                } else if (HighLogic.LoadedSceneIsEditor)
-                {
-                    yield return new WaitForFixedUpdate ();
-                    break;
-                }
-            }
-            updateDragCube(part, areaScale);
-        }
-
-        public static Part partFromHit (this RaycastHit hit)
-        {
-            if (hit.collider == null || hit.collider.gameObject == null)
-            {
-                return null;
-            }
-
-            var go = hit.collider.gameObject;
-
-            var p = Part.FromGO (go);
-
-            while (p == null)
-            {
-                if (go?.transform?.parent?.gameObject != null)
-                    go = go.transform.parent.gameObject;
-                else
-                    break;
-
-                p = Part.FromGO (go);
-            }
-
-            return p;
         }
 
         public static List<Part> getAllChildrenRecursive (this Part rootPart, bool root)
