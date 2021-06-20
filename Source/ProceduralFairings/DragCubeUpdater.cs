@@ -23,7 +23,7 @@ namespace ProceduralFairings
                 yield return new WaitForSeconds(delay);
             while (HighLogic.LoadedSceneIsFlight && (!FlightGlobals.ready || part.packed || !part.vessel.loaded))
                 yield return new WaitForFixedUpdate();
-            while (HighLogic.LoadedSceneIsEditor && part.localRoot != EditorLogic.RootPart)
+            while (HighLogic.LoadedSceneIsEditor && (part.localRoot != EditorLogic.RootPart || part.gameObject.layer == LayerMask.NameToLayer("TransparentFX")))
                 yield return new WaitForFixedUpdate();
             Keramzit.PFUtils.updateDragCube(part);
             dragUpdating = false;
