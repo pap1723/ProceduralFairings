@@ -842,5 +842,31 @@ namespace Keramzit
 
             m.triangles = tri;
         }
+
+        public void MakeTransparent()
+        {
+            var mr = part.FindModelComponents<MeshRenderer>("model");
+            foreach (var ren in mr)
+            {
+                ren.material.renderQueue = 6000;
+                ren.material.SetFloat(PropertyIDs._Opacity, 0.5f);
+            }
+        }
+        public void MakeOpaque()
+        {
+            var mr = part.FindModelComponents<MeshRenderer>("model");
+            foreach (var ren in mr)
+            {
+                ren.material.renderQueue = -1;
+                ren.material.SetFloat(PropertyIDs._Opacity, 1f);
+            }
+        }
+        
+        public void SetOffset(Vector3 offset)
+        {
+            Debug.Log("SetOffset Called()");
+            var mf = part.FindModelComponent<MeshFilter>("model");
+            mf.transform.localPosition = offset;
+        }
     }
 }
