@@ -108,7 +108,7 @@ namespace Keramzit
         public bool showInterstageNodes = true;
 
         [UI_Toggle(scene = UI_Scene.Editor, disabledText = "Closed", enabledText = "Open", suppressEditorShipModified = true)]
-        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Fairing", groupName = PFUtils.PAWGroup)]
+        [KSPField(guiActiveEditor = true, guiName = "Fairing", groupName = PFUtils.PAWGroup)]
         public bool openFairing = false;
 
         float fairingBaseMass = 0;
