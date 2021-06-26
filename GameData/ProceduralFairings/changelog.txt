@@ -1,4 +1,55 @@
 =======================================================
+ProceduralFairings v6.0.0 for KSP 1.8+ (2021-06-26)
+=======================================================
+
+Code modernization, a few bugfixes, and a major internal restructuring.
+
+If playing in Sandbox, you probably want to enable the setting to apply all PartUpgrades in Sandbox.
+
+Bugfix: MJ interaction with disabled fairingside decouplers
+New feature: Support ProcParts' DecouplerTweaker
+Side Fairing CoM, CoL, part placement and collider improvements
+PAW Groups
+Added cost and mass modifiers for the decoupler for Fairing Sides and Fairing Bases. Default is no additional cost or mass.
+Made Part stats more consistent
+Introduce configurable settings for:
+    Decoupler node hint display
+    Max diameter dimension
+Bugfix: PartVariant handling for fairing attach nodes
+Bugfix: Part flickering when adding fairing bases in stack symmetry mode
+Bugfix: Part origin is no longer outside of the mesh. (The plates from the part picker now have their attachment node at the very bottom, this is intentional.)
+Enforce Cylinder Start <= Cylinder End via the UI min/max values.
+
+Internal updates:
+
+Use of PartUpgrades to manage min/max dimensions
+Rework FairingSide handling: move the part and orient, rather than ignore the part and move/orient the mesh
+Modified drag cube handling
+Simplified staging icon handling
+More UI change handlers
+Dedicated co-routines for some functionality (decouplers, in-Editor change detection)
+Better handling for pushing attached parts / AttachNodes when resizing/reshaping
+More consistent attachment node size handling
+Removed dragAreaScale parameter.
+Eliminated the ProceduralFairingAdapter and KzBaseResizer PartModules. All their functionality 
+has merged into the ProceduralFairingBase. If you are a mod author and relied on extending these 
+PartModules, please discuss. It may be best to take the source from PF 1.8.x releases and bring 
+that to your mod.
+
+If after upgrade in the VAB, your Interstage fairings look like tiny payload fairings instead, 
+immediately reload the .craft file using the stock (NOT CraftManager) method. Do not re-save it first.
+
+Notice for CraftManager Users: CraftManager does not invoke the Upgrade Pipeline when it loads a craft. 
+Thus, PF's upgrade tools don't have the opportunity to run. You must load [each] .craft file via the 
+stock method once before using CraftManager.
+
+Notice for Linux Users: The upgrade process for the .craft file runs, but the first time it is 
+loaded into the Editor, your fairings look wrong, like the note above. A warning window will pop-up, 
+reminding you to load the .craft file again. It worked, it just appears the un-corrected version 
+was cached and read the first time.
+
+
+=======================================================
 ProceduralFairings v1.8.3.0 for KSP 1.8+ (2020-05-09)
 =======================================================
 
