@@ -1,4 +1,9 @@
 =======================================================
+ProceduralFairings v6.0.1 for KSP 1.8+ (2021-06-26)
+=======================================================
+Hotfix: Remove PartVariants from the Thrust Plate.  If TU is installed, only the recolorable version is available.
+
+=======================================================
 ProceduralFairings v6.0.0 for KSP 1.8+ (2021-06-26)
 =======================================================
 
