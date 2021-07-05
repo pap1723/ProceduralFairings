@@ -107,6 +107,10 @@ namespace Keramzit
         [UI_Toggle(disabledText = "Off", enabledText = "On")]
         public bool showInterstageNodes = true;
 
+        [UI_Toggle(scene = UI_Scene.Editor, disabledText = "Closed", enabledText = "Open")]
+        [KSPField(guiActiveEditor = true, guiName = "Fairing", groupName = PFUtils.PAWGroup)]
+        public bool openFairing = false;
+
         float fairingBaseMass = 0;
 
         public bool needShapeUpdate = true;
@@ -117,6 +121,12 @@ namespace Keramzit
         readonly List<ConfigurableJoint> joints = new List<ConfigurableJoint>();
         public DragCubeUpdater dragCubeUpdater;
         public ModuleDecouple Decoupler;
+        private readonly List<ProceduralFairingSide> sides = new List<ProceduralFairingSide>();
+        public Vector3 editorOpenOffset => new Vector3(OffsetValueX, 0, 0);
+        public const float openSpeed = 0.3f;
+        private const float minOffset = 2f;
+        
+        private float OffsetValueX => Math.Max(minOffset, Math.Max(baseSize, topSize));
 
         float lastBaseSize = -1000;
         float lastTopSize = -1000;
@@ -484,20 +494,15 @@ namespace Keramzit
             UpdateFairingSideDragCubes();
         }
 
+        public List<ProceduralFairingSide> GetFairingSides(Part p) =>
+            p.FindAttachNodes("connect")
+             .Where(x => x.attachedPart is Part sp && sp.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide)
+             .Select(y => y.attachedPart.GetComponent<ProceduralFairingSide>()).ToList();
+
         public void UpdateFairingSideDragCubes()
         {
-            if (part.FindAttachNodes("connect") is AttachNode[] attached)
-            {
-                foreach (AttachNode sn in attached)
-                {
-                    if (sn.attachedPart is Part sp &&
-                        sp.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide sf &&
-                        sf.dragCubeUpdater is DragCubeUpdater)
-                    {
-                        sf.dragCubeUpdater.Update();
-                    }
-                }
-            }
+            foreach (var p in GetFairingSides(part))
+                p.dragCubeUpdater?.Update();
         }
 
         public void UpdatePartProperties()
@@ -1376,6 +1381,8 @@ namespace Keramzit
                         float off = sn.position.y;
                         off -= oppNodePos.y;
                         sf2.meshPos = new Vector3(-norm.magnitude, -off, 0);
+                        var currentOffset = sf2.meshPos + (openFairing ? editorOpenOffset : Vector3.zero);
+                        StartCoroutine(sf2.SetOffset(currentOffset, openSpeed));
                     }
 
                     // Only rebuild the shape if shapelock is not set.
@@ -1404,6 +1411,8 @@ namespace Keramzit
                         sf2.density = density;
 
                         sf2.rebuildMesh();
+                        var currentOffset = sf2.meshPos + (openFairing ? editorOpenOffset : Vector3.zero);
+                        StartCoroutine(sf2.SetOffset(currentOffset, openSpeed));
                     }
                 }
             }
