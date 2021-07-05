@@ -1,0 +1,220 @@
+// Model Originally Created by ShadowMage for SSTU
+// License: CC-BY-NC-SA
+
+PART
+{
+    name = SSTUBase_New
+    module = Part
+    author = ShadowMage, Pap
+
+    MODEL
+    {
+        name = SSTU50
+        model = ProceduralFairings/Assets/Adapters/New/SSTU50Base
+        scale = 1.0, 1.0, 1.0
+    }
+	MODEL
+    {
+        name = SSTU50Ext25
+        model = ProceduralFairings/Assets/Adapters/New/SSTU50Extension-0_25
+        scale = 1.0, 1.0, 1.0
+		position = 0.0, 0.25, 0.0
+    }
+	MODEL
+    {
+        name = SSTU50Ext50
+        model = ProceduralFairings/Assets/Adapters/New/SSTU50Extension-0_50
+        scale = 1.0, 1.0, 1.0
+		position = 0.0, 0.25, 0.0
+    }
+	MODEL
+    {
+        name = SSTU50Ext75
+        model = ProceduralFairings/Assets/Adapters/New/SSTU50Extension-0_75
+        scale = 1.0, 1.0, 1.0
+		position = 0.0, 0.25, 0.0
+    }
+	MODEL
+    {
+        name = SSTU50Ext1
+        model = ProceduralFairings/Assets/Adapters/New/SSTU50Extension-1
+        scale = 1.0, 1.0, 1.0
+		position = 0.0, 0.25, 0.0
+    }
+
+    scale = 1.0
+    rescaleFactor = 1.0
+
+    node_stack_top = 0.0, 0.25, 0.0, 0.0, 1.0, 0.0, 1
+    node_stack_bottom = 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 1
+
+    node_stack_connect01 = 0.5, 0.03, 0.0, 0.0, 1.0, 0.0, 0
+    node_stack_connect02 = 0.5, 0.03, 0.0, 0.0, 1.0, 0.0, 0
+    node_stack_connect03 = 0.5, 0.03, 0.0, 0.0, 1.0, 0.0, 0
+    node_stack_connect04 = 0.5, 0.03, 0.0, 0.0, 1.0, 0.0, 0
+    node_stack_connect05 = 0.5, 0.03, 0.0, 0.0, 1.0, 0.0, 0
+    node_stack_connect06 = 0.5, 0.03, 0.0, 0.0, 1.0, 0.0, 0
+    node_stack_connect07 = 0.5, 0.03, 0.0, 0.0, 1.0, 0.0, 0
+    node_stack_connect08 = 0.5, 0.03, 0.0, 0.0, 1.0, 0.0, 0
+
+    attachRules = 1,0,1,1,0
+
+    fx_gasBurst_white = 0.0, 0.25, 0.0, 0.0, 1.0, 0.0, decouple
+
+    sound_decoupler_fire = decouple
+
+    TechRequired = aerodynamicSystems
+    cost = 100
+    entryCost = 4600
+    title = Procedural Hollow Truss Payload Adapter
+    manufacturer = Generic
+    description = Hollow Truss structural base for mounting side fairings and your payload.
+
+    MODULE
+    {
+        name = ProceduralFairingBase
+        mode = Payload
+        baseSize = 1.25
+    }
+
+    MODULE
+    {
+        name = KzNodeNumberTweaker
+        numNodes = 2
+    }
+
+    MODULE
+    {
+        name = KzFairingBaseShielding
+    }
+
+    MODULE
+    {
+        name = ModuleDecouple
+        explosiveNodeID = top
+    }
+
+    MODULE
+    {
+        name = ModuleToggleCrossfeed
+    }
+	
+	MODULE
+	{
+		name = ModulePartVariants
+		baseVariant = SSTU50
+		baseDisplayName = Base
+		
+		VARIANT
+		{
+			name = SSTU50
+			displayName = Base
+			primaryColor = #ffffff
+			secondaryColor = #ffffff
+			
+			GAMEOBJECTS
+			{
+				SSTU50 = true
+				SSTU50Ext25 = false
+				SSTU50Ext50 = false
+				SSTU50Ext75 = false
+				SSTU50Ext1 = false
+			}
+		}
+		VARIANT
+		{
+			name = SSTU50Ext25
+			displayName = 0.25m Ext
+			primaryColor = #ffffff
+			secondaryColor = #000000
+			
+			GAMEOBJECTS
+			{
+				SSTU50 = true
+				SSTU50Ext25 = true
+				SSTU50Ext50 = false
+				SSTU50Ext75 = false
+				SSTU50Ext1 = false
+			}
+			
+			NODES
+			{
+				node_stack_top = 0.0, 0.5, 0.0, 0.0, 1.0, 0.0, 1
+			}
+		}
+		VARIANT
+		{
+			name = SSTU50Ext50
+			displayName = 0.5m Ext
+			primaryColor = #000000
+			secondaryColor = #ffffff
+			
+			GAMEOBJECTS
+			{
+				SSTU50 = true
+				SSTU50Ext25 = false
+				SSTU50Ext50 = true
+				SSTU50Ext75 = false
+				SSTU50Ext1 = false
+			}
+			
+			NODES
+			{
+				node_stack_top = 0.0, 0.75, 0.0, 0.0, 1.0, 0.0, 1
+			}
+		}
+		VARIANT
+		{
+			name = SSTU50Ext75
+			displayName = 0.75m Ext
+			primaryColor = #000080
+			secondaryColor = #000000
+			
+			GAMEOBJECTS
+			{
+				SSTU50 = true
+				SSTU50Ext25 = false
+				SSTU50Ext50 = false
+				SSTU50Ext75 = true
+				SSTU50Ext1 = false
+			}
+			
+			NODES
+			{
+				node_stack_top = 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1
+			}
+		}
+		VARIANT
+		{
+			name = SSTU50Ext1
+			displayName = 1m Ext
+			primaryColor = #000000
+			secondaryColor = #000080
+			
+			GAMEOBJECTS
+			{
+				SSTU50 = true
+				SSTU50Ext25 = false
+				SSTU50Ext50 = false
+				SSTU50Ext75 = false
+				SSTU50Ext1 = true
+			}
+			
+			NODES
+			{
+				node_stack_top = 0.0, 1.25, 0.0, 0.0, 1.0, 0.0, 1
+			}
+		}
+	}
+	
+	MODULE
+	{
+		name = SSTURecolorGUI
+	}
+	
+	MODULE
+	{
+		name = KSPTextureSwitch
+		textureSet = SSTU_FairingBase_recolor
+	}
+}
