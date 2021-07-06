@@ -850,7 +850,7 @@ namespace Keramzit
             var lp = mf.transform.localPosition;
             float elapsedTime = 0f;
 
-            while (elapsedTime < time)
+            while (elapsedTime <= time)
             {
                 mf.transform.localPosition = Vector3.Lerp(lp, offset, (elapsedTime / time));
                 elapsedTime += Time.deltaTime;
