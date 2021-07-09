@@ -859,5 +859,11 @@ namespace Keramzit
 
             mf.transform.localPosition = offset;
         }
+
+        public void SetOffset(Vector3 offset)
+        {
+            var mf = part.FindModelComponent<MeshFilter>("model");
+            mf.transform.localPosition = offset;
+        }
     }
 }

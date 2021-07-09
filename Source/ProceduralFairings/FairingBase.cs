@@ -107,7 +107,7 @@ namespace Keramzit
         [UI_Toggle(disabledText = "Off", enabledText = "On")]
         public bool showInterstageNodes = true;
 
-        [UI_Toggle(scene = UI_Scene.Editor, disabledText = "Closed", enabledText = "Open")]
+        [UI_Toggle(scene = UI_Scene.Editor, disabledText = "Closed", enabledText = "Open", suppressEditorShipModified = true)]
         [KSPField(guiActiveEditor = true, guiName = "Fairing", groupName = PFUtils.PAWGroup)]
         public bool openFairing = false;
 
@@ -122,11 +122,12 @@ namespace Keramzit
         public DragCubeUpdater dragCubeUpdater;
         public ModuleDecouple Decoupler;
         private readonly List<ProceduralFairingSide> sides = new List<ProceduralFairingSide>();
-        public Vector3 editorOpenOffset => new Vector3(OffsetValueX, 0, 0);
+        public Vector3 editorOpenOffset => new Vector3(minOffset, 0, 0);
+
         public const float openSpeed = 0.3f;
         private const float minOffset = 2f;
         
-        private float OffsetValueX => Math.Max(minOffset, Math.Max(baseSize, topSize));
+        public void OnToggleOpen(BaseField field, object oldValue) => UpdateOpen();
 
         float lastBaseSize = -1000;
         float lastTopSize = -1000;
@@ -356,6 +357,9 @@ namespace Keramzit
 
             Fields[nameof(showInterstageNodes)].uiControlEditor.onFieldChanged += OnNodeVisibilityChanged;
             Fields[nameof(showInterstageNodes)].uiControlEditor.onSymmetryFieldChanged += OnNodeVisibilityChanged;
+            
+            Fields[nameof(openFairing)].uiControlEditor.onFieldChanged += OnToggleOpen;
+            Fields[nameof(openFairing)].uiControlEditor.onSymmetryFieldChanged += OnToggleOpen;
         }
 
         void SetUIFieldVisibility()
@@ -503,6 +507,17 @@ namespace Keramzit
         {
             foreach (var p in GetFairingSides(part))
                 p.dragCubeUpdater?.Update();
+        }
+        
+        public void UpdateOpen()
+        {
+            var offsetAmount = Vector3.zero;
+            if (openFairing)
+                offsetAmount = editorOpenOffset;
+            foreach (var side in GetFairingSides(part))
+            {
+                StartCoroutine(side.SetOffset(side.meshPos + offsetAmount, openSpeed));
+            }
         }
 
         public void UpdatePartProperties()
@@ -1382,7 +1397,7 @@ namespace Keramzit
                         off -= oppNodePos.y;
                         sf2.meshPos = new Vector3(-norm.magnitude, -off, 0);
                         var currentOffset = sf2.meshPos + (openFairing ? editorOpenOffset : Vector3.zero);
-                        StartCoroutine(sf2.SetOffset(currentOffset, openSpeed));
+                        sf2.SetOffset(currentOffset);
                     }
 
                     // Only rebuild the shape if shapelock is not set.
@@ -1412,7 +1427,7 @@ namespace Keramzit
 
                         sf2.rebuildMesh();
                         var currentOffset = sf2.meshPos + (openFairing ? editorOpenOffset : Vector3.zero);
-                        StartCoroutine(sf2.SetOffset(currentOffset, openSpeed));
+                        sf2.SetOffset(currentOffset);
                     }
                 }
             }
