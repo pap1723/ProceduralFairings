@@ -107,6 +107,10 @@ namespace Keramzit
         [UI_Toggle(disabledText = "Off", enabledText = "On")]
         public bool showInterstageNodes = true;
 
+        [UI_Toggle(scene = UI_Scene.Editor, disabledText = "Closed", enabledText = "Open", suppressEditorShipModified = true)]
+        [KSPField(guiActiveEditor = true, guiName = "Fairing", groupName = PFUtils.PAWGroup)]
+        public bool openFairing = false;
+
         float fairingBaseMass = 0;
 
         public bool needShapeUpdate = true;
@@ -117,6 +121,12 @@ namespace Keramzit
         readonly List<ConfigurableJoint> joints = new List<ConfigurableJoint>();
         public DragCubeUpdater dragCubeUpdater;
         public ModuleDecouple Decoupler;
+        public Vector3 EditorOpenOffset => new Vector3(OffsetAmount, 0, 0);
+        private float OffsetAmount => Mathf.Max(minOffset, Mathf.Max(baseSize, topSize) / 2);
+        private const float openSpeed = 0.3f;
+        private const float minOffset = 2f;
+
+        public void OnToggleOpen(BaseField field, object oldValue) => UpdateOpen();
 
         float lastBaseSize = -1000;
         float lastTopSize = -1000;
@@ -346,6 +356,9 @@ namespace Keramzit
 
             Fields[nameof(showInterstageNodes)].uiControlEditor.onFieldChanged += OnNodeVisibilityChanged;
             Fields[nameof(showInterstageNodes)].uiControlEditor.onSymmetryFieldChanged += OnNodeVisibilityChanged;
+            
+            Fields[nameof(openFairing)].uiControlEditor.onFieldChanged += OnToggleOpen;
+            Fields[nameof(openFairing)].uiControlEditor.onSymmetryFieldChanged += OnToggleOpen;
         }
 
         void SetUIFieldVisibility()
@@ -484,19 +497,23 @@ namespace Keramzit
             UpdateFairingSideDragCubes();
         }
 
+        public List<ProceduralFairingSide> GetFairingSides(Part p) =>
+            p.FindAttachNodes("connect")
+             .Where(x => x.attachedPart is Part sp && sp.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide)
+             .Select(y => y.attachedPart.GetComponent<ProceduralFairingSide>()).ToList();
+
         public void UpdateFairingSideDragCubes()
         {
-            if (part.FindAttachNodes("connect") is AttachNode[] attached)
+            foreach (var p in GetFairingSides(part))
+                p.dragCubeUpdater?.Update();
+        }
+        
+        public void UpdateOpen()
+        {
+            var offsetAmount = openFairing ? EditorOpenOffset : Vector3.zero;
+            foreach (var side in GetFairingSides(part))
             {
-                foreach (AttachNode sn in attached)
-                {
-                    if (sn.attachedPart is Part sp &&
-                        sp.GetComponent<ProceduralFairingSide>() is ProceduralFairingSide sf &&
-                        sf.dragCubeUpdater is DragCubeUpdater)
-                    {
-                        sf.dragCubeUpdater.Update();
-                    }
-                }
+                StartCoroutine(side.SetOffset(side.meshPos + offsetAmount, openSpeed));
             }
         }
 
@@ -1376,6 +1393,8 @@ namespace Keramzit
                         float off = sn.position.y;
                         off -= oppNodePos.y;
                         sf2.meshPos = new Vector3(-norm.magnitude, -off, 0);
+                        var currentOffset = sf2.meshPos + (openFairing ? EditorOpenOffset : Vector3.zero);
+                        sf2.SetOffset(currentOffset);
                     }
 
                     // Only rebuild the shape if shapelock is not set.
@@ -1404,6 +1423,8 @@ namespace Keramzit
                         sf2.density = density;
 
                         sf2.rebuildMesh();
+                        var currentOffset = sf2.meshPos + (openFairing ? EditorOpenOffset : Vector3.zero);
+                        sf2.SetOffset(currentOffset);
                     }
                 }
             }
