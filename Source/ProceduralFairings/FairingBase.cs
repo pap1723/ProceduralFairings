@@ -119,7 +119,6 @@ namespace Keramzit
         private TextMeshPro nonDecouplerHint;
         readonly List<LineRenderer> outline = new List<LineRenderer>();
         readonly List<ConfigurableJoint> joints = new List<ConfigurableJoint>();
-        public DragCubeUpdater dragCubeUpdater;
         public ModuleDecouple Decoupler;
         public Vector3 EditorOpenOffset => new Vector3(OffsetAmount, 0, 0);
         private float OffsetAmount => Mathf.Max(minOffset, Mathf.Max(baseSize, topSize) / 2);
@@ -175,7 +174,6 @@ namespace Keramzit
 
         public override void OnStart (StartState state)
         {
-            dragCubeUpdater = new DragCubeUpdater(part);
             Decoupler = part.FindModuleImplementing<ModuleDecouple>();
 
             if (requestLegacyLoad)
@@ -183,7 +181,7 @@ namespace Keramzit
 
             if (!HighLogic.LoadedSceneIsEditor && !HighLogic.LoadedSceneIsFlight) return;
 
-            PFUtils.hideDragStuff(part);
+            ProceduralTools.DragCubeTool.UpdateDragCubes(part);
             if (HighLogic.LoadedSceneIsEditor)
             {
                 ConfigureTechLimits();
@@ -222,8 +220,6 @@ namespace Keramzit
             // Don't update drag cubes before a part has been attached in the editor.
             UpdatePartProperties();
             UpdateNodes(false);
-            if (!HighLogic.LoadedSceneIsEditor)
-                dragCubeUpdater.Update();
             if (HighLogic.LoadedSceneIsEditor)
                 ShowHideInterstageNodes();
             if (Mode == BaseMode.Adapter)
@@ -493,7 +489,7 @@ namespace Keramzit
             UpdateNodes(pushAttachments);
             if (!HighLogic.LoadedSceneIsFlight)
                 recalcShape();
-            dragCubeUpdater.Update();
+            ProceduralTools.DragCubeTool.UpdateDragCubes(part);
             UpdateFairingSideDragCubes();
         }
 
@@ -505,7 +501,7 @@ namespace Keramzit
         public void UpdateFairingSideDragCubes()
         {
             foreach (var p in GetFairingSides(part))
-                p.dragCubeUpdater?.Update();
+                ProceduralTools.DragCubeTool.UpdateDragCubes(p.part);
         }
         
         public void UpdateOpen()
@@ -1104,7 +1100,7 @@ namespace Keramzit
         {
             if (Mode != BaseMode.Payload && Mode != BaseMode.Adapter)
                 return;
-            var scan = ScanPayload ();
+            var scan = ScanPayload();
 
             //  Check for reversed bases (inline fairings).
 
@@ -1177,27 +1173,13 @@ namespace Keramzit
             float minBaseConeTan = Mathf.Tan (minBaseConeAngle * Mathf.Deg2Rad);
 
             float cylStart = 0;
-            float maxRad;
 
-            int profTop = scan.profile.Count;
+            int profTop = isInline ? Mathf.CeilToInt((topY - scan.ofs) / verticalStep) : scan.profile.Count;
+            profTop = Math.Min(profTop, scan.profile.Count);
 
+            float maxRad = Mathf.Max(scan.profile.Take(profTop).ToArray());
             if (isInline)
-            {
-                profTop = Mathf.CeilToInt ((topY - scan.ofs) / verticalStep);
-                profTop = Math.Min(profTop, scan.profile.Count);
-
-                maxRad = 0;
-                for (int i = 0; i < profTop; ++i)
-                {
-                    maxRad = Mathf.Max (maxRad, scan.profile [i]);
-                }
-
-                maxRad = Mathf.Max (maxRad, topRad);
-            }
-            else
-            {
-                maxRad = PFUtils.GetMaxValueFromList (scan.profile);
-            }
+                maxRad = Mathf.Max(maxRad, topRad);
 
             if (maxRad > baseRad)
             {
@@ -1211,29 +1193,15 @@ namespace Keramzit
                     float r0 = baseRad;
                     float k = (maxRad - r0) / y;
 
-                    if (k < minBaseConeTan)
-                    {
-                        break;
-                    }
-
-                    bool ok = true;
-
                     float r = r0 + k * scan.ofs;
-
-                    for (int j = 0; j < i; ++j, r += k * verticalStep)
+                    bool ok = k >= minBaseConeTan;
+                    for (int j = 0; ok && j < i; ++j, r += k * verticalStep)
                     {
-                        if (scan.profile [j] > r)
-                        {
-                            ok = false;
-
-                            break;
-                        }
+                        ok = scan.profile[j] <= r;
                     }
 
                     if (!ok)
-                    {
                         break;
-                    }
 
                     cylStart = y;
                 }
@@ -1272,29 +1240,16 @@ namespace Keramzit
                         float y = i * verticalStep + scan.ofs;
                         float k = (maxRad - r0) / (y - topY);
 
-                        bool ok = true;
-
                         float r = maxRad + k * verticalStep;
-
-                        for (int j = i; j < profTop; ++j, r += k * verticalStep)
+                        bool ok = true;
+                        for (int j = i; ok && j < profTop; ++j, r += k * verticalStep)
                         {
-                            if (r < r0)
-                            {
-                                r = r0;
-                            }
-
-                            if (scan.profile [j] > r)
-                            {
-                                ok = false;
-
-                                break;
-                            }
+                            r = Mathf.Max(r, r0);
+                            ok = scan.profile[j] <= r;
                         }
 
                         if (!ok)
-                        {
                             break;
-                        }
 
                         cylEnd = y;
                     }
@@ -1311,26 +1266,17 @@ namespace Keramzit
                 for (int i = scan.profile.Count - 1; i >= 0; --i)
                 {
                     float s = verticalStep / noseHeightRatio;
-
-                    bool ok = true;
-
                     float r = maxRad - s;
 
-                    for (int j = i; j < scan.profile.Count; ++j, r -= s)
+                    bool ok = true;
+                    for (int j = i; ok && j < scan.profile.Count; ++j, r -= s)
                     {
-                        if (scan.profile [j] > r)
-                        {
-                            ok = false;
-
-                            break;
-                        }
+                        ok = scan.profile[j] <= r;
                     }
 
                     if (!ok) break;
 
-                    float y = i * verticalStep + scan.ofs;
-
-                    cylEnd = y;
+                    cylEnd = i * verticalStep + scan.ofs;
                 }
             }
 

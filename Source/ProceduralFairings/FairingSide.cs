@@ -29,8 +29,6 @@ namespace Keramzit
         [KSPField] public float specificBreakingForce = 2000;
         [KSPField] public float specificBreakingTorque = 2000;
 
-        public DragCubeUpdater dragCubeUpdater;
-
         public float DefaultBaseConeSegments => part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().baseConeSegments;
         public float DefaultNoseConeSegments => part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().noseConeSegments;
         public float DefaultNoseHeightRatio => part.partInfo.partPrefab.FindModuleImplementing<ProceduralFairingSide>().noseHeightRatio;
@@ -188,27 +186,19 @@ namespace Keramzit
             (Fields[nameof(shapePreset)].uiControlEditor as UI_ChooseOption).options = AllPresets.Keys.ToArray();
             (Fields[nameof(shapePreset)].uiControlEditor as UI_ChooseOption).display = AllPresets.Keys.ToArray();
 
-            dragCubeUpdater = new DragCubeUpdater(part);
             // If part is pulled from the picker (ie prefab), delay mesh rebuilding.
             if (HighLogic.LoadedSceneIsEditor && part.parent == null)
                 part.OnEditorAttach += OnPartEditorAttach;
-            else 
+            else
                 rebuildMesh();
 
             SetUICallbacks();
             SetUIFieldVisibility();
         }
 
-        public override void OnStartFinished(StartState state)
-        {
-            if (!HighLogic.LoadedSceneIsEditor)
-                dragCubeUpdater.Update();
-        }
-
         private void OnPartEditorAttach()
         {
             rebuildMesh();
-            dragCubeUpdater.Update();
         }
 
         void SetUICallbacks()
@@ -285,14 +275,7 @@ namespace Keramzit
 
         void OnChangeShapeUI(BaseField bf, object obj)
         {
-            // Defer ProceduralFairingBase.recalcShape() until all attached fairingSides have updated their values.
-            if (part.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase fbase)
-                fbase.needShapeUpdate = true;
-            else
-            {
-                rebuildMesh();
-                dragCubeUpdater.Update();
-            }
+            rebuildMesh();
         }
 
         internal void ResetBaseCurve(bool fromPrefab = false)
@@ -903,6 +886,7 @@ namespace Keramzit
             }
 
             m.triangles = tri;
+            ProceduralTools.DragCubeTool.UpdateDragCubes(part);
         }
 
         public IEnumerator SetOffset(Vector3 offset, float time = 0.3f)
