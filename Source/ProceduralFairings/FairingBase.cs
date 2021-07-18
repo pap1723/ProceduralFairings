@@ -121,12 +121,11 @@ namespace Keramzit
         readonly List<ConfigurableJoint> joints = new List<ConfigurableJoint>();
         public DragCubeUpdater dragCubeUpdater;
         public ModuleDecouple Decoupler;
-        private readonly List<ProceduralFairingSide> sides = new List<ProceduralFairingSide>();
-        public Vector3 editorOpenOffset => new Vector3(minOffset, 0, 0);
-
-        public const float openSpeed = 0.3f;
+        public Vector3 EditorOpenOffset => new Vector3(OffsetAmount, 0, 0);
+        private float OffsetAmount => Mathf.Max(minOffset, Mathf.Max(baseSize, topSize) / 2);
+        private const float openSpeed = 0.3f;
         private const float minOffset = 2f;
-        
+
         public void OnToggleOpen(BaseField field, object oldValue) => UpdateOpen();
 
         float lastBaseSize = -1000;
@@ -511,9 +510,7 @@ namespace Keramzit
         
         public void UpdateOpen()
         {
-            var offsetAmount = Vector3.zero;
-            if (openFairing)
-                offsetAmount = editorOpenOffset;
+            var offsetAmount = openFairing ? EditorOpenOffset : Vector3.zero;
             foreach (var side in GetFairingSides(part))
             {
                 StartCoroutine(side.SetOffset(side.meshPos + offsetAmount, openSpeed));
@@ -1396,7 +1393,7 @@ namespace Keramzit
                         float off = sn.position.y;
                         off -= oppNodePos.y;
                         sf2.meshPos = new Vector3(-norm.magnitude, -off, 0);
-                        var currentOffset = sf2.meshPos + (openFairing ? editorOpenOffset : Vector3.zero);
+                        var currentOffset = sf2.meshPos + (openFairing ? EditorOpenOffset : Vector3.zero);
                         sf2.SetOffset(currentOffset);
                     }
 
@@ -1426,7 +1423,7 @@ namespace Keramzit
                         sf2.density = density;
 
                         sf2.rebuildMesh();
-                        var currentOffset = sf2.meshPos + (openFairing ? editorOpenOffset : Vector3.zero);
+                        var currentOffset = sf2.meshPos + (openFairing ? EditorOpenOffset : Vector3.zero);
                         sf2.SetOffset(currentOffset);
                     }
                 }
