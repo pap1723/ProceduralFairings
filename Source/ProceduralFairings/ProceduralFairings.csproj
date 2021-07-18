@@ -57,7 +57,7 @@
     <StartAction>Project</StartAction>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="DragCubeUpdater.cs" />
+    <Compile Include="DragCubeTool.cs" />
     <Compile Include="FairingSideShapePreset.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="FairingBase.cs" />
