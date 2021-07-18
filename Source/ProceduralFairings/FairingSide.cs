@@ -127,6 +127,30 @@ namespace Keramzit
         private bool DecouplerEnabled => part.FindModuleImplementing<ProceduralFairingDecoupler>() is ProceduralFairingDecoupler d && d.fairingStaged;
         public override string GetInfo() => "Attach to a procedural fairing base to reshape. Right-click it to set it's parameters.";
 
+        [KSPEvent(active = true, guiActiveEditor = true, groupName = PFUtils.PAWGroup, guiName = "Toggle Open/Closed")]
+        public void ToggleOpenClosed()
+        {
+            if (part.FindAttachNode("connect")?.attachedPart is Part fairingBase &&
+                fairingBase.GetComponent<ProceduralFairingBase>() is ProceduralFairingBase pm &&
+                pm.Fields[nameof(pm.openFairing)] is BaseField openField &&
+                openField.GetValue(pm) is bool openStatus)
+            {
+                var pai = openField.uiControlEditor.partActionItem as UIPartActionFieldItem;
+                if (pai == null)
+                {
+                    UIPartActionController.Instance.SpawnPartActionWindow(pm.part);
+                    pai = openField.uiControlEditor.partActionItem as UIPartActionFieldItem;
+                }
+                if (pai != null)
+                {
+                    var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+                    if (pai.GetType().GetMethod("SetFieldValue", flags) is var _mi)
+                    {
+                        _mi.Invoke(pai, new object[] { !openStatus });
+                    }
+                }
+            }
+        }
 
         public void Start ()
         {
