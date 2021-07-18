@@ -36,8 +36,6 @@ namespace Keramzit
     {
         public const string PAWName = "ProceduralFairings";
         public const string PAWGroup = "ProceduralFairings";
-        public static bool canCheckTech () => HighLogic.LoadedSceneIsEditor && (ResearchAndDevelopment.Instance != null || (HighLogic.CurrentGame.Mode != Game.Modes.CAREER && HighLogic.CurrentGame.Mode != Game.Modes.SCIENCE_SANDBOX));
-
         public static void setFieldRange(BaseField field, float minval, float maxval)
         {
             if (field.uiControlEditor is UI_FloatRange fr)
@@ -130,45 +128,6 @@ namespace Keramzit
                 r.enabled = e;
         }
 
-        public static void hideDragStuff(Part part) => enableRenderer(part.FindModelTransform("dragOnly"), false);
-
-        public static bool FARinstalled, FARchecked;
-
-        public static bool isFarInstalled()
-        {
-            if (!FARchecked)
-            {
-                FARinstalled = AssemblyLoader.loadedAssemblies.Any(a => a.assembly.GetName().Name == "FerramAerospaceResearch");
-                FARchecked = true;
-            }
-            return FARinstalled;
-        }
-
-        public static void updateDragCube(Part part, float areaScale = 1)
-        {
-            if (isFarInstalled())
-            {
-                Debug.Log ("[PF]: Calling FAR to update voxels...");
-                part.SendMessage ("GeometryPartModuleRebuildMeshData");
-            }
-            //            if (HighLogic.LoadedSceneIsFlight)
-            {
-                enableRenderer(part.FindModelTransform("dragOnly"), true);
-                var dragCube = DragCubeSystem.Instance.RenderProceduralDragCube(part);
-                enableRenderer(part.FindModelTransform("dragOnly"), false);
-
-                for (int i = 0; i < 6; ++i)
-                {
-                    dragCube.Area[i] *= areaScale;
-                }
-
-                part.DragCubes.ClearCubes();
-                part.DragCubes.Cubes.Add(dragCube);
-                part.DragCubes.ResetCubeWeights();
-                part.DragCubes.ForceUpdate(true, true, false);
-            }
-        }
-
         public static List<Part> getAllChildrenRecursive (this Part rootPart, bool root)
         {
             var children = new List<Part>();
@@ -182,52 +141,6 @@ namespace Keramzit
             }
 
             return children;
-        }
-
-        public static float GetMaxValueFromList (List<float> list)
-        {
-            float max = float.NegativeInfinity;
-            foreach (float f in list)
-                max = Mathf.Max(max, f);
-            return max;
-        }
-    }
-
-    [KSPAddon (KSPAddon.Startup.EditorAny, false)]
-    public class EditorScreenMessager : MonoBehaviour
-    {
-        static float osdMessageTime;
-        static string osdMessageText;
-
-        public static void showMessage (string msg, float delay)
-        {
-            osdMessageText = msg;
-            osdMessageTime = Time.time + delay;
-        }
-
-        void OnGUI ()
-        {
-            if (!HighLogic.LoadedSceneIsEditor)
-            {
-                return;
-            }
-
-            if (Time.time < osdMessageTime)
-            {
-                GUI.skin = HighLogic.Skin;
-
-                var style = new GUIStyle ("Label");
-
-                style.alignment = TextAnchor.MiddleCenter;
-                style.fontSize = 20;
-                style.normal.textColor = Color.black;
-
-                GUI.Label (new Rect (2, 2 + (Screen.height / 9), Screen.width, 50), osdMessageText, style);
-
-                style.normal.textColor = Color.yellow;
-
-                GUI.Label (new Rect (0, Screen.height / 9, Screen.width, 50), osdMessageText, style);
-            }
         }
     }
 }
