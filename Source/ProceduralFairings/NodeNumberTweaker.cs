@@ -140,7 +140,7 @@ namespace Keramzit
             {
                 if (findNode(i) is AttachNode node && node.attachedPart is Part)
                 {
-                    EditorScreenMessager.showMessage("Please detach any fairing parts before changing the number of nodes!", 1);
+                    ScreenMessages.PostScreenMessage("Please detach any fairing parts before changing the number of nodes!", 4, ScreenMessageStyle.UPPER_CENTER, Color.yellow);
                     return true;
                 }
             }
